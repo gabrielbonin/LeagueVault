@@ -5,7 +5,7 @@ Cofre local de contas do LoL (Electron + React + TypeScript). Responda em **port
 ## Regras de segurança
 - Senhas só existem no processo principal. Nunca as exponha ao renderer: `list()` devolve `PublicAccount`, e o preload não oferece leitura de senha.
 - Não registre senhas, tokens do lockfile nem expressões CDP em logs.
-- Mantenha `contextIsolation`, `sandbox` e CSP. Sem atualização automática, telemetria ou servidor.
+- Mantenha `contextIsolation`, `sandbox` e CSP. Sem telemetria, servidor ou instalação automática de atualizações: o app só avisa da versão nova (`src/main/updates.ts`), e isso pode ser desligado.
 - Nunca burle captcha ou 2FA: mostre a janela da Riot ao usuário.
 - Testes com contas reais são feitos pelo usuário. O Claude não digita nem lê senhas reais.
 

@@ -2,7 +2,7 @@
 
 Cofre local para as suas contas do League of Legends, com login em um clique.
 
-- **Local:** sem servidor próprio, sem telemetria e sem atualização automática. O app só acessa o OP.GG (elos), o whatismymmr.com (MMR), a CommunityDragon (imagens de elo) e o Riot Client do seu PC. Nenhuma senha sai do seu PC.
+- **Local:** sem servidor próprio, sem telemetria e sem instalação automática de atualizações. O app só acessa o OP.GG (elos), o whatismymmr.com (MMR), a CommunityDragon (imagens de elo), o GitHub (aviso de versão nova, que pode ser desligado) e o Riot Client do seu PC. Nenhuma senha sai do seu PC.
 - **Senha mestra:** contas criptografadas com AES-256-GCM e chave Argon2id. O cofre trava após 15 minutos parado.
 - **A interface nunca recebe as senhas:** só o processo principal do Electron as lê, na hora do login.
 - **Troca de conta:** encerra a sessão atual, entra na escolhida e abre o League.
@@ -14,6 +14,26 @@ Cofre local para as suas contas do League of Legends, com login em um clique.
 - **Backup:** é o próprio arquivo criptografado; abre em outro PC com a mesma senha mestra.
 
 > **Sem recuperação:** se esquecer a senha mestra, não há como recuperar as contas.
+
+## Instalação
+
+1. Abra a página de [Releases](https://github.com/gabrielbonin/LeagueVault/releases) e escolha a versão mais recente.
+2. Em **Assets**, baixe `LeagueVault.Setup.<versão>.exe`.
+3. Execute o instalador. Por enquanto o app não tem assinatura digital, então o Windows pode mostrar o alerta do SmartScreen: clique em **Mais informações** e depois em **Executar assim mesmo**.
+
+Para conferir o arquivo, compare o resultado do comando abaixo com o SHA-256 publicado na release:
+
+```powershell
+Get-FileHash "LeagueVault.Setup.0.1.1.exe" -Algorithm SHA256
+```
+
+As contas ficam só no seu PC, em `%APPDATA%\LeagueVault\vault.json`. Se esse arquivo já existir, o app pede a senha mestra em vez de criar um cofre novo.
+
+Em **Configurações** você vê esses caminhos e encontra:
+
+- **Desinstalar:** remove só o programa. Suas contas e sua senha mestra continuam salvas no PC.
+- **Apagar dados locais:** apaga as contas e a senha mestra, sem como desfazer. Backups exportados não são apagados.
+- **Atualizações:** o app avisa quando sai uma versão nova, e você pode desligar o aviso. A instalação é sempre feita por você.
 
 ## Aviso importante
 

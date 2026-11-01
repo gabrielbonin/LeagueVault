@@ -1,8 +1,11 @@
-import { join } from 'node:path'
+import { spawn } from 'node:child_process'
+import { existsSync, rmSync } from 'node:fs'
+import { dirname, join } from 'node:path'
 import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron'
-import type { AccountInput, AccountStatus, LoginResult, LoginStep } from '../shared/types'
+import type { AccountInput, AccountStatus, AppInfo, LoginResult, LoginStep, UpdateCheck } from '../shared/types'
 import { fetchRank } from './ranks'
 import { login, LoginError, readLeagueStatus } from './riot'
+import { fetchNewestRelease, readCheckUpdates, RELEASES_PAGE, writeCheckUpdates } from './updates'
 import { Vault } from './vault'
 
 const AUTO_LOCK_MS = 15 * 60 * 1000
@@ -15,6 +18,43 @@ let lockTimer: NodeJS.Timeout | null = null
 let loginAbort: AbortController | null = null
 let rankTimer: NodeJS.Timeout | null = null
 let refreshingRanks = false
+
+const vaultPath = (): string => join(app.getPath('userData'), 'vault.json')
+const settingsPath = (): string => join(app.getPath('userData'), 'settings.json')
+const installDir = (): string => dirname(app.getPath('exe'))
+const uninstallerPath = (): string => join(installDir(), `Uninstall ${app.getName()}.exe`)
+
+/** Runs the installer's own uninstaller, which leaves the vault file in place. */
+function uninstall(): Promise<boolean> {
+  return new Promise(resolve => {
+    if (!existsSync(uninstallerPath())) return resolve(false)
+    const child = spawn(uninstallerPath(), [], { detached: true, stdio: 'ignore' })
+    child.once('error', () => resolve(false))
+    child.once('spawn', () => {
+      child.unref()
+      resolve(true)
+      app.quit()
+    })
+  })
+}
+
+/** The native dialog keeps the confirmation out of the renderer's reach. */
+async function deleteData(): Promise<boolean> {
+  const { response } = await dialog.showMessageBox(window!, {
+    type: 'warning',
+    buttons: ['Cancelar', 'Apagar tudo'],
+    defaultId: 0,
+    cancelId: 0,
+    title: 'Apagar dados locais',
+    message: 'Apagar as contas e a senha mestra deste PC?',
+    detail: 'Isso não pode ser desfeito. Para usar o app de novo, você precisará criar outro cofre e cadastrar as contas. Backups exportados não são apagados.',
+  })
+  if (response !== 1) return false
+  vault.destroy()
+  rmSync(settingsPath(), { force: true })
+  lockNow()
+  return true
+}
 
 function updateStatus(id: string, status: Partial<AccountStatus>): void {
   const accounts = vault.updateStatus(id, status)
@@ -73,6 +113,26 @@ function handle<A extends unknown[], R>(channel: string, fn: (...args: A) => R):
 }
 
 function registerIpc(): void {
+  handle('app:info', (): AppInfo => ({
+    version: app.getVersion(),
+    vaultPath: vaultPath(),
+    installDir: installDir(),
+    canUninstall: existsSync(uninstallerPath()),
+    checkUpdates: readCheckUpdates(settingsPath()),
+  }))
+  handle('app:show-vault', () => shell.showItemInFolder(vaultPath()))
+  handle('app:show-install', () => shell.showItemInFolder(app.getPath('exe')))
+  handle('app:uninstall', uninstall)
+  handle('app:delete-data', deleteData)
+  handle('updates:set', (enabled: boolean) => writeCheckUpdates(settingsPath(), enabled))
+  handle('updates:check', async (): Promise<UpdateCheck> => {
+    try {
+      return { ok: true, latest: await fetchNewestRelease(app.getVersion()) }
+    } catch {
+      return { ok: false, latest: null }
+    }
+  })
+  handle('updates:open', () => shell.openExternal(RELEASES_PAGE))
   handle('vault:status', () => ({ exists: vault.exists, unlocked: vault.unlocked }))
   handle('vault:create', async (master: string) => {
     await vault.create(master)
@@ -191,7 +251,7 @@ app.on('window-all-closed', () => app.quit())
 app.on('before-quit', () => vault?.lock())
 
 void app.whenReady().then(() => {
-  vault = new Vault(join(app.getPath('userData'), 'vault.json'))
+  vault = new Vault(vaultPath())
   registerIpc()
   createWindow()
 })

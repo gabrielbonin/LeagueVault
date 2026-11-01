@@ -2,6 +2,14 @@ import { contextBridge, ipcRenderer } from 'electron'
 import type { Api, LoginStep, PublicAccount } from '../shared/types'
 
 const api: Api = {
+  appInfo: () => ipcRenderer.invoke('app:info'),
+  showVault: () => ipcRenderer.invoke('app:show-vault'),
+  showInstall: () => ipcRenderer.invoke('app:show-install'),
+  uninstall: () => ipcRenderer.invoke('app:uninstall'),
+  deleteData: () => ipcRenderer.invoke('app:delete-data'),
+  setCheckUpdates: enabled => ipcRenderer.invoke('updates:set', enabled),
+  checkUpdate: () => ipcRenderer.invoke('updates:check'),
+  openReleases: () => ipcRenderer.invoke('updates:open'),
   status: () => ipcRenderer.invoke('vault:status'),
   create: master => ipcRenderer.invoke('vault:create', master),
   unlock: master => ipcRenderer.invoke('vault:unlock', master),

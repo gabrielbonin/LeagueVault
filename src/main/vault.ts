@@ -1,5 +1,5 @@
 import { createCipheriv, createDecipheriv, randomBytes, randomUUID } from 'node:crypto'
-import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs'
 import { dirname } from 'node:path'
 import { argon2id } from 'hash-wasm'
 import type { Account, AccountInput, AccountStatus, PublicAccount, RankReading } from '../shared/types'
@@ -159,6 +159,13 @@ export class Vault {
     parseFile(raw)
     this.lock()
     this.writeAtomic(raw)
+  }
+
+  /** Deletes the vault for good. Exported backups are not touched. */
+  destroy(): void {
+    this.lock()
+    rmSync(this.path, { force: true })
+    rmSync(`${this.path}.tmp`, { force: true })
   }
 
   private requireUnlocked(): void {

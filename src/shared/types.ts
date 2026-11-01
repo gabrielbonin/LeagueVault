@@ -114,7 +114,28 @@ export type LoginErrorCode =
 
 export type LoginResult = { ok: true } | { ok: false; code: LoginErrorCode }
 
+export interface AppInfo {
+  version: string
+  vaultPath: string
+  installDir: string
+  canUninstall: boolean
+  checkUpdates: boolean
+}
+
+export interface UpdateCheck {
+  ok: boolean
+  latest: string | null
+}
+
 export interface Api {
+  appInfo(): Promise<AppInfo>
+  showVault(): Promise<void>
+  showInstall(): Promise<void>
+  uninstall(): Promise<boolean>
+  deleteData(): Promise<boolean>
+  setCheckUpdates(enabled: boolean): Promise<void>
+  checkUpdate(): Promise<UpdateCheck>
+  openReleases(): Promise<void>
   status(): Promise<VaultStatus>
   create(master: string): Promise<void>
   unlock(master: string): Promise<boolean>

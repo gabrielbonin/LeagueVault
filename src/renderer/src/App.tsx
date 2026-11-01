@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent, type KeyboardEvent, type MouseEvent } from 'react'
 import {
   REGIONS, TIERS,
-  type AccountInput, type AccountStatus, type GameRestriction, type LoginErrorCode, type LoginStep,
-  type PublicAccount, type SeasonRank, type Tier, type VaultStatus,
+  type AccountInput, type AccountStatus, type AppInfo, type GameRestriction, type LoginErrorCode, type LoginStep,
+  type PublicAccount, type SeasonRank, type Tier, type UpdateCheck, type VaultStatus,
 } from '../../shared/types'
 
 const LOGIN_STEPS: [LoginStep, string][] = [
@@ -306,6 +306,87 @@ function LoginProgress({ account, step, launchGame, closedLeague }: {
   )
 }
 
+function Settings({ onClose }: { onClose: () => void }) {
+  const [info, setInfo] = useState<AppInfo | null>(null)
+  const [error, setError] = useState('')
+  const [checking, setChecking] = useState(false)
+  const [update, setUpdate] = useState<UpdateCheck | null>(null)
+
+  useEffect(() => { void window.api.appInfo().then(setInfo) }, [])
+
+  async function uninstall(): Promise<void> {
+    setError('')
+    const accepted = confirm('Desinstalar o LeagueVault? O app será fechado. Suas contas e sua senha mestra continuam salvas neste PC.')
+    if (accepted && !await window.api.uninstall()) setError('Não consegui abrir o desinstalador.')
+  }
+
+  function toggleUpdates(checkUpdates: boolean): void {
+    if (info) setInfo({ ...info, checkUpdates })
+    void window.api.setCheckUpdates(checkUpdates)
+  }
+
+  async function checkNow(): Promise<void> {
+    setChecking(true)
+    setUpdate(await window.api.checkUpdate())
+    setChecking(false)
+  }
+
+  return (
+    <div className="modal-backdrop" onMouseDown={onClose}>
+      <div className="modal settings" onMouseDown={e => e.stopPropagation()}>
+        <h2>CONFIGURAÇÕES</h2>
+        <section>
+          <h4>SUAS SENHAS FICAM NESTE PC</h4>
+          <p>
+            As contas ficam salvas só neste computador, criptografadas com a sua senha mestra. O LeagueVault não tem
+            servidor nem conta online. A senha de cada conta só é usada na tela de login da Riot.
+          </p>
+        </section>
+        <section>
+          <h4>ARQUIVO DO COFRE</h4>
+          <p>Ao abrir, o app procura este arquivo. Se ele existir, pede a senha mestra; se não existir, cria um cofre novo.</p>
+          <code>{info?.vaultPath}</code>
+          <button className="ghost" onClick={() => void window.api.showVault()}>ABRIR PASTA</button>
+        </section>
+        <section>
+          <h4>INSTALAÇÃO</h4>
+          <code>{info?.installDir}</code>
+          <button className="ghost" onClick={() => void window.api.showInstall()}>ABRIR PASTA</button>
+        </section>
+        <section>
+          <h4>ATUALIZAÇÕES</h4>
+          <p>O app consulta a lista de versões no GitHub, sem enviar dados das suas contas. A instalação é sempre feita por você, e o cofre continua igual depois de atualizar.</p>
+          <label className="check">
+            <input type="checkbox" checked={info?.checkUpdates ?? true} onChange={e => toggleUpdates(e.target.checked)} />
+            Avisar quando houver uma versão nova
+          </label>
+          <button className="ghost" disabled={checking} onClick={() => void checkNow()}>{checking ? 'VERIFICANDO...' : 'VERIFICAR AGORA'}</button>
+          {update && !update.ok && <p className="error">Não consegui consultar o GitHub.</p>}
+          {update?.ok && !update.latest && <p>Você está na versão mais recente.</p>}
+          {update?.latest && <p>Nova versão disponível: <b>{update.latest}</b>.</p>}
+          {update?.latest && <button className="ghost" onClick={() => void window.api.openReleases()}>BAIXAR</button>}
+        </section>
+        <section>
+          <h4>DESINSTALAR</h4>
+          <p><b>Remove só o programa.</b> Suas contas e sua senha mestra continuam salvas neste PC, no arquivo do cofre.</p>
+          {info && !info.canUninstall && <p className="hint">Disponível apenas no app instalado.</p>}
+          <button className="ghost danger" disabled={!info?.canUninstall} onClick={() => void uninstall()}>DESINSTALAR</button>
+        </section>
+        <section>
+          <h4>APAGAR DADOS LOCAIS</h4>
+          <p><b>Apaga as contas e a senha mestra deste PC, sem como desfazer.</b> Para usar o app de novo, mesmo reinstalando, você precisará criar outro cofre e cadastrar as contas. Backups exportados não são apagados.</p>
+          <button className="ghost danger" onClick={() => void window.api.deleteData()}>APAGAR DADOS LOCAIS</button>
+        </section>
+        {error && <div className="error">{error}</div>}
+        <div className="modal-actions">
+          <span className="version">Versão {info?.version}</span>
+          <button className="gold" onClick={onClose}>FECHAR</button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function Vault({ onLock }: { onLock: () => void }) {
   const [accounts, setAccounts] = useState<PublicAccount[]>([])
   const [search, setSearch] = useState('')
@@ -319,8 +400,15 @@ function Vault({ onLock }: { onLock: () => void }) {
   const [refreshing, setRefreshing] = useState(false)
   const [message, setMessage] = useState('')
   const [askClose, setAskClose] = useState<PublicAccount | null>(null)
+  const [settings, setSettings] = useState(false)
+  const [newVersion, setNewVersion] = useState<string | null>(null)
 
   useEffect(() => { void window.api.list().then(setAccounts) }, [])
+  useEffect(() => {
+    void window.api.appInfo().then(async ({ checkUpdates }) => {
+      if (checkUpdates) setNewVersion((await window.api.checkUpdate()).latest)
+    })
+  }, [])
   useEffect(() => window.api.onLoginStep(setStep), [])
   useEffect(() => window.api.onAccountsChanged(setAccounts), [])
   useEffect(() => window.api.onRanksRefreshing(setRefreshing), [])
@@ -371,6 +459,7 @@ function Vault({ onLock }: { onLock: () => void }) {
           <button disabled={refreshing} onClick={() => void window.api.refreshRanks()}>{refreshing ? '↻ Atualizando elos...' : '↻ Atualizar elos'}</button>
           <button onClick={() => void window.api.importBackup().then(done => done && onLock())}>⇩ Importar backup</button>
           <button onClick={() => void window.api.exportBackup()}>⇧ Exportar backup</button>
+          <button onClick={() => setSettings(true)}>⚙ Configurações</button>
           <button onClick={() => void window.api.lock().then(onLock)}>🔒 Travar cofre</button>
         </div>
       </aside>
@@ -386,6 +475,12 @@ function Vault({ onLock }: { onLock: () => void }) {
           </select>
           <span className="count">{visible.length} de {accounts.length} contas</span>
         </div>
+        {newVersion && (
+          <div className="toast update" role="status">
+            Nova versão disponível: {newVersion}
+            <button className="ghost" onClick={() => void window.api.openReleases()}>BAIXAR</button>
+          </div>
+        )}
         {message && <div className="toast" role="status">{message}</div>}
         {accounts.length === 0
           ? <div className="empty">Nenhuma conta ainda. Clique em <b>Adicionar conta</b>.</div>
@@ -404,6 +499,8 @@ function Vault({ onLock }: { onLock: () => void }) {
       </main>
 
       {editing && <AccountForm initial={editing} onClose={() => setEditing(null)} onSaved={list => { setAccounts(list); setEditing(null) }} />}
+
+      {settings && <Settings onClose={() => setSettings(false)} />}
 
       {step && loggingIn && (
         <LoginProgress account={loggingIn} step={step} launchGame={launchGame} closedLeague={closedLeague} />

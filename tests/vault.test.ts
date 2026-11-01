@@ -21,6 +21,17 @@ describe('Vault', () => {
   })
   afterEach(() => rmSync(dir, { recursive: true, force: true }))
 
+  it('destroys the vault and allows a new one', async () => {
+    const vault = new Vault(path)
+    await vault.create(MASTER)
+    vault.save(account)
+    vault.destroy()
+    expect(vault.exists).toBe(false)
+    expect(vault.unlocked).toBe(false)
+    await vault.create('another master')
+    expect(vault.list()).toEqual([])
+  })
+
   it('never writes the password in clear text', async () => {
     const vault = new Vault(path)
     await vault.create(MASTER)

@@ -154,3 +154,21 @@ select option { background: var(--panel); }
 .stats .good { color: var(--teal); }
 .stats .bad { color: #f0837a; }
 .lock-card .disclaimer { font-size: 11px; color: #f0b232; }
+
+.settings { width: 580px; max-height: calc(100vh - 80px); overflow-y: auto; }
+.settings section { display: grid; gap: 6px; justify-items: start; padding-top: 10px; border-top: 1px solid var(--line); }
+.settings h4 { font-size: 11px; color: var(--gold); }
+.settings p { margin: 0; font-size: 12px; }
+.settings code { width: 100%; padding: 7px 9px; font: 12px Consolas, monospace; color: var(--gold-bright); overflow-wrap: anywhere; background: #01060d; border: 1px solid var(--line); }
+.settings .ghost { padding: 6px 12px; font-size: 11px; }
+.settings .danger { color: #ff7b72; border-color: #8c3a35; }
+.settings .danger:hover:not(:disabled) { color: #ffb4ae; border-color: #ff7b72; }
+.settings .danger:disabled { opacity: .5; cursor: default; }
+.settings .modal-actions { align-items: center; }
+.version { margin-right: auto; font-size: 11px; color: #6f7f8c; }
+.settings { scrollbar-color: #785a28 #0a1420; }
+.settings b { color: var(--gold-bright); font-weight: 600; }
+.settings .check { display: flex; font-size: 12px; color: var(--text); }
+.settings .ghost:disabled { opacity: .5; cursor: default; }
+.toast.update { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.toast.update .ghost { padding: 4px 10px; font-size: 11px; }
