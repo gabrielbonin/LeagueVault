@@ -7,7 +7,7 @@ Cofre local para as suas contas do League of Legends, com login em um clique.
 - **A interface nunca recebe as senhas:** só o processo principal do Electron as lê, na hora do login.
 - **Troca de conta:** encerra a sessão atual, entra na escolhida e abre o League.
 - **Captcha e 2FA não são burlados:** a janela da Riot abre para você resolver.
-- **Elo automático:** vem do OP.GG ao abrir o cofre e a cada 30 minutos, e do cliente do League quando você entra na conta.
+- **Elo automático:** vem do OP.GG ao abrir o cofre e a cada 30 minutos, e do cliente do League quando você entra na conta. O OP.GG pode ficar atrasado, então o valor do cliente só é substituído quando o OP.GG tem uma partida mais recente.
 - **Estatísticas:** win rate, temporada passada, pico e nível.
 - **MMR estimado:** só para NA, EUW, EUNE e KR, as regiões cobertas pelo whatismymmr.com. A Riot não divulga o MMR, e a busca usa só o nome, então pode vir de outro jogador com o mesmo nome.
 - **Penalidades:** banimento, restrição de chat e de ranqueada e honra baixa, com a última leitura de cada conta.
@@ -24,7 +24,7 @@ Cofre local para as suas contas do League of Legends, com login em um clique.
 Para conferir o arquivo, compare o resultado do comando abaixo com o SHA-256 publicado na release:
 
 ```powershell
-Get-FileHash "LeagueVault.Setup.0.1.1.exe" -Algorithm SHA256
+Get-FileHash "LeagueVault.Setup.0.1.2.exe" -Algorithm SHA256
 ```
 
 As contas ficam só no seu PC, em `%APPDATA%\LeagueVault\vault.json`. Se esse arquivo já existir, o app pede a senha mestra em vez de criar um cofre novo.

@@ -252,7 +252,12 @@ function AccountCard({ account, disabled, onLogin, onEdit, onDelete }: {
       <div className="card-rank">
         <Emblem tier={account.tier} />
         <div>
-          <strong style={{ color: TIER_COLOR[account.tier] }}>{ranked ? `${account.tier} ${account.division}`.trim().toUpperCase() : 'SEM ELO'}</strong>
+          <strong
+            style={{ color: TIER_COLOR[account.tier] }}
+            title={account.clientRankAt
+              ? `Lido do cliente do League em ${new Date(account.clientRankAt).toLocaleString('pt-BR')}`
+              : 'Lido do OP.GG, que pode estar atrasado. Entre na conta para ler o elo pelo cliente do League.'}
+          >{ranked ? `${account.tier} ${account.division}`.trim().toUpperCase() : 'SEM ELO'}</strong>
           {ranked && <span className="lp">{account.lp} PDL</span>}
           {ranked && <div className="bar"><i style={{ width: `${Math.min(account.lp, 100)}%`, background: TIER_COLOR[account.tier] }} /></div>}
         </div>
@@ -300,6 +305,7 @@ function LoginProgress({ account, step, launchGame, closedLeague }: {
           ))}
         </ol>
         {verification && <p className="verify">A Riot pediu uma verificação. Resolva o captcha ou o 2FA na janela dela.</p>}
+        {step === 'launching-game' && <p className="hint">O League pode levar até um minuto para aparecer.</p>}
         <button className="ghost" onClick={() => void window.api.cancelLogin()}>CANCELAR</button>
       </div>
     </div>
@@ -447,6 +453,11 @@ function Vault({ onLock }: { onLock: () => void }) {
         <button className="gold add" onClick={() => setEditing(EMPTY)}>＋ ADICIONAR CONTA</button>
         <h4>DISTRIBUIÇÃO DE ELO</h4>
         <ul className="tiers">
+          <li>
+            <button className={tier === '' ? 'active' : ''} onClick={() => setTier('')}>
+              <i style={{ background: 'var(--gold)' }} />Todas<b>{accounts.length}</b>
+            </button>
+          </li>
           {distribution.map(([name, count]) => (
             <li key={name}>
               <button className={tier === name ? 'active' : ''} onClick={() => setTier(tier === name ? '' : name)}>

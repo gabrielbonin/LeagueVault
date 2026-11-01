@@ -42,6 +42,10 @@ export interface RankReading {
   lastSeason?: SeasonRank | null
   peak?: SeasonRank | null
   mmr?: MmrEstimate | null
+  /** Set when the rank came from the League client, the only always-current source. */
+  clientRankAt?: number
+  /** Newest game OP.GG knows about, which tells how stale its rank is. */
+  latestGameAt?: number
 }
 
 /** Last reading from Riot. It can only be read while the account is signed in. */
@@ -66,6 +70,7 @@ export interface Account {
   note: string
   status?: AccountStatus
   rankCheckedAt?: number
+  clientRankAt?: number
   wins?: number
   losses?: number
   level?: number

@@ -1,7 +1,30 @@
 import { describe, expect, it } from 'vitest'
-import { banFrom, leagueRegion, restrictionFrom } from '../src/main/riot'
+import { banFrom, inInstallation, isRunning, leagueRegion, restrictionFrom } from '../src/main/riot'
 
 const regions = { BR: { rso_platform_id: 'BR1' }, EUW: { rso_platform_id: 'EUW1' }, KR: { rso_platform_id: 'KR' } }
+
+describe('isRunning', () => {
+  it('tells a live process from the pid of a stale lockfile', () => {
+    expect(isRunning(process.pid)).toBe(true)
+    expect(isRunning(99_999_999)).toBe(false)
+  })
+})
+
+describe('inInstallation', () => {
+  const service = 'C:/Riot Games/Riot Client/RiotClientServices.exe'
+
+  it('matches the Riot paths despite the different slashes', () => {
+    expect(inInstallation(service, 'C:\\Riot Games\\Riot Client\\RiotClientServices.exe')).toBe(true)
+    expect(inInstallation(service, 'c:\\riot games\\riot client\\RiotClientElectron\\Riot Client.exe')).toBe(true)
+  })
+  it('leaves other installations alone', () => {
+    expect(inInstallation(service, 'D:\\Riot Games\\Riot Client\\RiotClientServices.exe')).toBe(false)
+    expect(inInstallation(service, 'C:\\Riot Games\\Riot Client 2\\RiotClientServices.exe')).toBe(false)
+  })
+  it('ignores a process without a readable path', () => {
+    expect(inInstallation(service, '')).toBe(false)
+  })
+})
 
 describe('leagueRegion', () => {
   it('keeps a region the account plays on', () => {

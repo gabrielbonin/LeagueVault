@@ -9,7 +9,7 @@ import { execFile, spawn, type ChildProcess } from 'node:child_process'
 import { existsSync, readFileSync } from 'node:fs'
 import https from 'node:https'
 import { createServer } from 'node:net'
-import { dirname, join, sep } from 'node:path'
+import { dirname, join, win32 } from 'node:path'
 import { promisify } from 'node:util'
 import WebSocket from 'ws'
 import type { AccountBan, AccountStatus, GameRestriction, LoginErrorCode, LoginStep, RankReading } from '../shared/types'
@@ -17,6 +17,9 @@ import { toRank } from './ranks'
 
 const run = promisify(execFile)
 const delay = (ms: number): Promise<void> => new Promise(resolve => setTimeout(resolve, ms))
+const LEAGUE_WINDOW_TIMEOUT_MS = 90_000
+const CLIENT_RESTART_GAP_MS = 10_000
+const SIGN_OUT_RETRY_MS = 3000
 
 export class LoginError extends Error {
   constructor(readonly code: LoginErrorCode) {
@@ -63,6 +66,16 @@ export function clientPath(): string | null {
 
 const lockfilePath = (): string =>
   join(process.env.LOCALAPPDATA ?? '', 'Riot Games', 'Riot Client', 'Config', 'lockfile')
+
+/** A force-killed client leaves its lockfile behind, so the file alone proves nothing. */
+export function isRunning(pid: number): boolean {
+  try {
+    process.kill(pid, 0)
+    return true
+  } catch (error) {
+    return (error as NodeJS.ErrnoException).code === 'EPERM'
+  }
+}
 
 interface Response {
   status: number
@@ -201,12 +214,17 @@ async function processes(names: string[]): Promise<RunningProcess[]> {
 const kill = (pid: number): Promise<unknown> =>
   run('taskkill.exe', ['/F', '/PID', String(pid)], { windowsHide: true }).catch(() => undefined)
 
+/** RiotClientInstalls.json uses forward slashes; Windows reports backslashes. */
+export function inInstallation(service: string, path: string): boolean {
+  const root = `${win32.dirname(win32.normalize(service))}\\`.toLowerCase()
+  return win32.normalize(path).toLowerCase().startsWith(root)
+}
+
 /** Ends the Riot Client of this installation only, never game processes. */
 async function stopClient(service: string, signal: AbortSignal): Promise<void> {
-  const root = dirname(service).toLowerCase() + sep
   const running = async (): Promise<RunningProcess[]> =>
     (await processes(['RiotClientServices.exe', 'Riot Client.exe'])).filter(process =>
-      process.path.toLowerCase().startsWith(root),
+      inInstallation(service, process.path),
     )
   for (const process of await running()) await kill(process.pid)
   const start = Date.now()
@@ -218,6 +236,17 @@ async function stopClient(service: string, signal: AbortSignal): Promise<void> {
 
 function startService(service: string, headless: boolean): void {
   spawn(service, headless ? ['--headless'] : [], { detached: true, stdio: 'ignore', windowsHide: true }).unref()
+}
+
+/** A headless client quits by itself once League ends, even in the middle of a login. */
+function clientKeeper(service: string): () => void {
+  let lastStart = 0
+  return () => {
+    const api = LocalApi.read()
+    if ((api && isRunning(api.pid)) || Date.now() - lastStart < CLIENT_RESTART_GAP_MS) return
+    lastStart = Date.now()
+    startService(service, true)
+  }
 }
 
 const freePort = (): Promise<number> =>
@@ -465,18 +494,21 @@ class Renderer {
   }
 }
 
-async function ensureLeagueClosed(closeLeague: boolean, onStep: (step: LoginStep) => void): Promise<void> {
+/** True when League had to be closed. */
+async function ensureLeagueClosed(closeLeague: boolean, onStep: (step: LoginStep) => void): Promise<boolean> {
   const running = await processes(['LeagueClient.exe', 'LeagueClientUx.exe', 'League of Legends.exe'])
   if (running.some(process => process.name === 'League of Legends.exe')) throw new LoginError('game-running')
-  if (!running.length) return
+  if (!running.length) return false
   if (!closeLeague) throw new LoginError('league-running')
   onStep('closing-league')
   for (const process of running) await kill(process.pid)
+  return true
 }
 
-async function awaitProductContext(signal: AbortSignal): Promise<void> {
+async function awaitProductContext(signal: AbortSignal, keepClient: () => void): Promise<void> {
   const start = Date.now()
   while (Date.now() - start < 60_000) {
+    keepClient()
     const body = (await LocalApi.read()?.get('/player-session-lifecycle/v1/session'))?.body
     if (body?.loginState === 'PendingProductContext' && body?.actionRequired !== true) return
     await sleep(300, signal)
@@ -484,22 +516,37 @@ async function awaitProductContext(signal: AbortSignal): Promise<void> {
   throw new LoginError('timeout')
 }
 
+/**
+ * Keeps the progress screen up until League draws its window. Giving up is not
+ * an error: the launch already succeeded and League may just be patching.
+ */
+async function awaitLeagueWindow(signal: AbortSignal): Promise<void> {
+  const start = Date.now()
+  while (!signal.aborted && Date.now() - start < LEAGUE_WINDOW_TIMEOUT_MS) {
+    if ((await processes(['LeagueClientUxRender.exe']).catch(() => [])).length) return
+    await delay(1000)
+  }
+}
+
 export async function login(request: LoginRequest): Promise<void> {
   const { username, launchGame, closeLeague, onStep, signal } = request
   const service = clientPath()
   if (!service) throw new LoginError('client-missing')
-  await ensureLeagueClosed(closeLeague, onStep)
+  const closedLeague = await ensureLeagueClosed(closeLeague, onStep)
 
   const renderer = new Renderer(service)
+  const keepClient = clientKeeper(service)
   try {
     onStep('opening-client')
-    if (!LocalApi.read()) startService(service, true)
+    // The client refuses to sign out and then quits while League shuts down, so start clean.
+    if (closedLeague) await stopClient(service, signal)
     const start = Date.now()
-    let signOutSent = false
+    let lastSignOut = 0
     let alreadySignedIn = false
     for (;;) {
       checkCancelled(signal)
       if (Date.now() - start > 60_000) throw new LoginError('timeout')
+      keepClient()
       const api = LocalApi.read()
       const session = await api?.session()
       if (session === 'signed-out') break
@@ -509,10 +556,10 @@ export async function login(request: LoginRequest): Promise<void> {
           alreadySignedIn = true
           break
         }
-        if (name && !signOutSent) {
+        if (name && Date.now() - lastSignOut > SIGN_OUT_RETRY_MS) {
           onStep('signing-out')
           await api?.request('DELETE', '/player-session-lifecycle/v1/session')
-          signOutSent = true
+          lastSignOut = Date.now()
         }
       }
       await sleep(300, signal)
@@ -527,7 +574,7 @@ export async function login(request: LoginRequest): Promise<void> {
     // Riot disconnects a suspended account as soon as the game starts.
     if (ban) throw new LoginError('banned')
 
-    await awaitProductContext(signal)
+    await awaitProductContext(signal, keepClient)
     const api = LocalApi.read()
     if (!api) throw new LoginError('failed')
     await followLeagueRegion(api)
@@ -536,6 +583,7 @@ export async function login(request: LoginRequest): Promise<void> {
     const launch = await api.request('POST', '/product-launcher/v1/products/league_of_legends/patchlines/live', {})
     if (!launch || (launch.status >= 300 && launch.status !== 423)) throw new LoginError('failed')
     renderer.replacedByGame()
+    await awaitLeagueWindow(signal)
   } finally {
     await renderer.restore()
   }

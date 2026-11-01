@@ -192,7 +192,7 @@ function registerIpc(): void {
         void readLeagueStatus(account.username).then(reading => {
           if (!reading) return
           updateStatus(id, reading.status)
-          const accounts = reading.rank && vault.updateRank(id, reading.rank)
+          const accounts = reading.rank && vault.updateRank(id, { ...reading.rank, clientRankAt: Date.now() })
           if (accounts) window?.webContents.send('vault:changed', accounts)
         })
       }

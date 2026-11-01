@@ -3,6 +3,7 @@ import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync 
 import { dirname } from 'node:path'
 import { argon2id } from 'hash-wasm'
 import type { Account, AccountInput, AccountStatus, PublicAccount, RankReading } from '../shared/types'
+import { mergeRank } from './ranks'
 
 const AAD = Buffer.from('leaguevault-v1')
 const KDF = { iterations: 3, memorySize: 64 * 1024, parallelism: 1, hashLength: 32 }
@@ -123,7 +124,7 @@ export class Vault {
     if (rank === 'missing') {
       account.rankMissing = true
     } else {
-      Object.assign(account, rank, { rankMissing: false, rankCheckedAt: Date.now() })
+      Object.assign(account, mergeRank(account, rank), { rankMissing: false, rankCheckedAt: Date.now() })
     }
     this.persist()
     return this.list()

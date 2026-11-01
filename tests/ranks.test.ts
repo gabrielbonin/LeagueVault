@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { fetchMmr, opggUrl, parseOpgg, parseSeasons, toRank, UNRANKED } from '../src/main/ranks'
+import { fetchMmr, mergeRank, opggUrl, parseOpgg, parseSeasons, toRank, UNRANKED } from '../src/main/ranks'
+import type { Account, RankReading } from '../src/shared/types'
 
 const page = (description: string): string =>
   `<meta name="description" content="${description}"><img src="profile_icons/profileIcon6.jpg">`
@@ -66,6 +67,47 @@ describe('parseOpgg stats', () => {
     const rank = parseOpgg(page('Foo#BR1 / Platinum 4 10 LP / 448Win 371Lose Win rate 55%') + history)
     expect(rank).toMatchObject({ wins: 448, losses: 371 })
     expect(rank?.peak).toMatchObject({ season: 'Atual', tier: 'Platinum' })
+  })
+})
+
+describe('mergeRank', () => {
+  const clientAt = Date.parse('2026-11-01T12:00:00Z')
+  const account: Account = {
+    id: '1', username: 'u', password: 'p', riotId: 'A#B', region: 'BR', note: '',
+    tier: 'Emerald', division: 'III', lp: 40, wins: 120, losses: 130, clientRankAt: clientAt,
+  }
+  const opgg: RankReading = {
+    tier: 'Platinum', division: 'I', lp: 25, wins: 110, losses: 134, level: 200,
+    peak: { season: 'S2025', tier: 'Emerald', division: 'I', lp: 10 },
+    latestGameAt: Date.parse('2026-10-25T00:00:00Z'),
+  }
+
+  it('keeps the client rank over a stale OP.GG profile, taking the rest', () => {
+    expect(mergeRank(account, opgg)).toMatchObject({ tier: 'Emerald', division: 'III', lp: 40, wins: 120, losses: 130, level: 200 })
+  })
+  it('keeps the client rank when OP.GG lists no games', () => {
+    expect(mergeRank(account, { ...opgg, latestGameAt: undefined }).tier).toBe('Emerald')
+  })
+  it('accepts OP.GG once it has a newer game', () => {
+    expect(mergeRank(account, { ...opgg, latestGameAt: clientAt + 1 }).tier).toBe('Platinum')
+  })
+  it('accepts OP.GG for an account never read from the client', () => {
+    expect(mergeRank({ ...account, clientRankAt: undefined }, opgg).tier).toBe('Platinum')
+  })
+  it('always accepts a new client reading and promotes the peak', () => {
+    const rank = mergeRank(account, { tier: 'Diamond', division: 'IV', lp: 5, clientRankAt: clientAt + 1 })
+    expect(rank).toMatchObject({ tier: 'Diamond', peak: { season: 'Atual', tier: 'Diamond' } })
+  })
+  it('does not store the OP.GG game date', () => {
+    expect(mergeRank(account, opgg)).not.toHaveProperty('latestGameAt')
+  })
+})
+
+describe('parseOpgg freshness', () => {
+  it('reads the newest game on the page', () => {
+    const games = '"startTime":"2026-10-25T17:10:57+09:00","x":1,"startTime":"2026-10-20T10:00:00+09:00"'
+    expect(parseOpgg(page('Foo#BR1 / Gold 2 48 LP / 1Win 1Lose') + games)?.latestGameAt)
+      .toBe(Date.parse('2026-10-25T17:10:57+09:00'))
   })
 })
 

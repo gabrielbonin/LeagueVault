@@ -1,4 +1,4 @@
-import { TIERS, type MmrEstimate, type RankReading, type SeasonRank, type Tier } from '../shared/types'
+import { TIERS, type Account, type MmrEstimate, type RankReading, type SeasonRank, type Tier } from '../shared/types'
 
 const USER_AGENT =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36'
@@ -81,16 +81,36 @@ export function parseOpgg(html: string): RankReading | null {
   const current = rank ? toRank(rank[1], rank[2] ?? '', Number(rank[3].replace(/,/g, ''))) : UNRANKED
   const record = description.match(/([\d,]+)\s*Win\s+([\d,]+)\s*Lose/)
   const level = description.match(/\bLv\.\s*(\d+)/)
-  const { lastSeason, peak } = parseSeasons(html.replace(/\\"/g, '"').replace(/&quot;/g, '"'))
+  const payload = html.replace(/\\"/g, '"').replace(/&quot;/g, '"')
+  const { lastSeason, peak } = parseSeasons(payload)
   const currentIsPeak = current.tier !== 'Unranked' && (!peak || score(current) > score(peak))
+  const games = [...payload.matchAll(/"startTime":"([^"]+)"/g)].map(match => Date.parse(match[1])).filter(Boolean)
   return {
     ...current,
+    ...(games.length ? { latestGameAt: Math.max(...games) } : {}),
     wins: record ? Number(record[1].replace(/,/g, '')) : 0,
     losses: record ? Number(record[2].replace(/,/g, '')) : 0,
     ...(level ? { level: Number(level[1]) } : {}),
     lastSeason,
     peak: currentIsPeak ? { season: 'Atual', tier: current.tier, division: current.division, lp: current.lp } : peak,
   }
+}
+
+/**
+ * OP.GG only refreshes a profile when someone asks it to, so its rank can lag
+ * for days. It replaces a League client reading only with a newer game on file.
+ */
+export function mergeRank(account: Account, reading: RankReading): RankReading {
+  const { latestGameAt, ...rank } = reading
+  const stale = !rank.clientRankAt && account.clientRankAt !== undefined
+    && (latestGameAt ?? 0) <= account.clientRankAt
+  const { tier, division, lp, wins, losses } = stale ? account : rank
+  const merged: RankReading = { ...rank, tier, division, lp, wins, losses }
+  const peak = rank.peak === undefined ? account.peak : rank.peak
+  if (tier !== 'Unranked' && (!peak || score({ tier, division, lp }) > score(peak))) {
+    merged.peak = { season: 'Atual', tier, division, lp }
+  }
+  return merged
 }
 
 /** Estimated MMR, or null where the source has no data for this player. */
