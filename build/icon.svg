@@ -1,0 +1,101 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0f3d4a"/>
+      <stop offset="1" stop-color="#051420"/>
+    </linearGradient>
+    <linearGradient id="frame" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#f0e6d2"/>
+      <stop offset=".5" stop-color="#c8aa6e"/>
+      <stop offset="1" stop-color="#785a28"/>
+    </linearGradient>
+    <linearGradient id="gold" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ffe08a"/>
+      <stop offset="1" stop-color="#b8862f"/>
+    </linearGradient>
+    <linearGradient id="fur" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#8a5a34"/>
+      <stop offset="1" stop-color="#5c3a20"/>
+    </linearGradient>
+    <linearGradient id="skin" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#f0c896"/>
+      <stop offset="1" stop-color="#d49c68"/>
+    </linearGradient>
+    <radialGradient id="glow">
+      <stop offset="0" stop-color="#2ee6a0" stop-opacity=".6"/>
+      <stop offset="1" stop-color="#2ee6a0" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <rect x="24" y="24" width="976" height="976" rx="190" fill="url(#bg)"/>
+  <rect x="24" y="24" width="976" height="976" rx="190" fill="none" stroke="url(#frame)" stroke-width="28"/>
+
+  <g stroke="#160c06" stroke-width="16" stroke-linejoin="round" stroke-linecap="round">
+    <!-- corpo -->
+    <path d="M150 1000 C160 800 270 730 400 730 C530 730 640 800 655 1000 Z" fill="#14252e" transform="translate(-20 -12)"/>
+    <path d="M300 748 C340 800 440 800 490 748" fill="none" stroke="#c8aa6e" stroke-width="20"/>
+
+    <!-- orelhas -->
+    <circle cx="165" cy="420" r="92" fill="url(#fur)"/>
+    <circle cx="165" cy="420" r="50" fill="#d49c68"/>
+    <circle cx="625" cy="420" r="92" fill="url(#fur)"/>
+    <circle cx="625" cy="420" r="50" fill="#d49c68"/>
+
+    <!-- cabeca -->
+    <path d="M395 130 C570 130 655 260 650 420 C646 600 560 750 395 750 C230 750 144 600 140 420 C135 260 220 130 395 130 Z" fill="url(#fur)"/>
+    <path d="M395 150 l-26 -62 M395 150 l26 -56" fill="none" stroke-width="20"/>
+
+    <!-- rosto -->
+    <path d="M395 290 C440 245 570 250 578 370 C584 450 540 480 545 540 C552 650 480 716 395 716 C310 716 238 650 245 540 C250 480 206 450 212 370 C220 250 350 245 395 290 Z" fill="url(#skin)"/>
+
+    <!-- olhos entediados -->
+    <ellipse cx="300" cy="400" rx="66" ry="58" fill="#fbf6ea"/>
+    <ellipse cx="490" cy="400" rx="66" ry="58" fill="#fbf6ea"/>
+    <circle cx="316" cy="414" r="27" fill="#0b5c44" stroke="none"/>
+    <circle cx="506" cy="414" r="27" fill="#0b5c44" stroke="none"/>
+    <circle cx="316" cy="414" r="13" fill="#0b0b0b" stroke="none"/>
+    <circle cx="506" cy="414" r="13" fill="#0b0b0b" stroke="none"/>
+    <path d="M226 396 C232 332 368 332 374 396 Z" fill="#c98f5c"/>
+    <path d="M416 396 C422 332 558 332 564 396 Z" fill="#c98f5c"/>
+
+    <!-- focinho -->
+    <path d="M380 510 q-10 16 -28 14 M410 510 q10 16 28 14" fill="none" stroke-width="12"/>
+    <path d="M270 620 C330 650 430 660 530 590" fill="none"/>
+    <path d="M530 590 q16 -4 18 -24" fill="none"/>
+  </g>
+
+  <!-- brilho da esmeralda -->
+  <circle cx="790" cy="640" r="220" fill="url(#glow)"/>
+
+  <g transform="translate(790 640) scale(.8 -.8) translate(-790 -470)">
+  <!-- chave -->
+  <g stroke="#160c06" stroke-width="16" stroke-linejoin="round">
+    <path d="M765 585 H815 V885 H882 V920 H815 V932 H862 V966 H765 Z" fill="url(#gold)"/>
+    <path d="M734 345 H846 L915 414 V526 L846 595 H734 L665 526 V414 Z" fill="url(#gold)"/>
+  </g>
+
+  <!-- esmeralda no cabo da chave -->
+  <g stroke="#06291f" stroke-width="10" stroke-linejoin="round">
+    <path d="M750 385 H830 L875 430 V510 L830 555 H750 L705 510 V430 Z" fill="#12b07a"/>
+    <path d="M750 385 H830 L815 425 H765 Z" fill="#7df2c6"/>
+    <path d="M830 385 L875 430 L835 445 L815 425 Z" fill="#3fe0a8"/>
+    <path d="M875 430 V510 L835 495 V445 Z" fill="#1fc78d"/>
+    <path d="M875 510 L830 555 L815 515 L835 495 Z" fill="#097a55"/>
+    <path d="M830 555 H750 L765 515 H815 Z" fill="#0d9568"/>
+    <path d="M750 555 L705 510 L745 495 L765 515 Z" fill="#097a55"/>
+    <path d="M705 510 V430 L745 445 V495 Z" fill="#1fc78d"/>
+    <path d="M705 430 L750 385 L765 425 L745 445 Z" fill="#3fe0a8"/>
+    <path d="M765 425 H815 L835 445 V495 L815 515 H765 L745 495 V445 Z" fill="#2fd69c"/>
+  </g>
+  </g>
+  <path d="M768 436 H806 L790 480 H756 Z" fill="#d6fff0" opacity=".65" transform="translate(790 640) scale(.8) translate(-790 -470)"/>
+
+  <!-- braco e mao segurando -->
+  <g stroke="#160c06" stroke-width="16" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M560 1004 C590 910 640 850 720 806 L800 880 C760 920 730 960 716 1004 Z" fill="url(#fur)"/>
+    <path d="M655 790 C680 745 815 745 850 790 C880 830 850 880 790 892 C720 905 640 860 655 790 Z" fill="url(#skin)"/>
+    <path d="M700 760 C690 720 720 700 740 730 L748 776" fill="url(#skin)"/>
+    <path d="M760 756 C755 712 790 700 804 734 L804 780" fill="url(#skin)"/>
+    <path d="M655 800 C615 790 600 745 632 732 C655 724 680 760 690 790" fill="url(#skin)"/>
+  </g>
+</svg>
