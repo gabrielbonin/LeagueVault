@@ -123,6 +123,12 @@ function LockScreen({ exists, onDone }: { exists: boolean; onDone: () => void })
           ? 'Digite sua senha mestra para acessar as contas.'
           : 'Crie a senha que vai proteger todas as suas contas.'}</p>
         {!exists && <SecurityHelp />}
+        {!exists && (
+          <p className="disclaimer">
+            Projeto independente, sem afiliação com a Riot Games. Use por sua conta e risco: não nos responsabilizamos
+            por banimentos, penalidades ou perda de contas.
+          </p>
+        )}
         <PasswordInput placeholder="Senha mestra" autoFocus value={master} onChange={setMaster} />
         {!exists && <PasswordInput placeholder="Repita a senha mestra" value={confirm} onChange={setConfirm} />}
         {error && <div className="error">{error}</div>}

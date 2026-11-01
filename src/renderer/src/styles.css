@@ -153,3 +153,4 @@ select option { background: var(--panel); }
 .stats small { font-weight: 400; color: #6f7f8c; }
 .stats .good { color: var(--teal); }
 .stats .bad { color: #f0837a; }
+.lock-card .disclaimer { font-size: 11px; color: #f0b232; }

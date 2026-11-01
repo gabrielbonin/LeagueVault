@@ -15,7 +15,20 @@ Cofre local para as suas contas do League of Legends, com login em um clique.
 
 > **Sem recuperação:** se esquecer a senha mestra, não há como recuperar as contas.
 
-> Projeto não afiliado à Riot Games. Login automatizado pode contrariar os termos da Riot; use por sua conta e risco. O app não inclui artes da Riot: as imagens de elo são carregadas da CommunityDragon na hora de exibir e pertencem à Riot Games.
+## Aviso importante
+
+**O LeagueVault é um projeto independente, sem qualquer afiliação, aprovação ou patrocínio da Riot Games.** League of Legends e Riot Games são marcas da Riot Games, Inc.
+
+- **Use por sua conta e risco.** Automatizar o login pode contrariar os Termos de Serviço da Riot.
+- **Os autores não se responsabilizam** por banimentos, suspensões, restrições, penalidades, perda de contas ou de dados, ou qualquer outro prejuízo decorrente do uso deste software.
+- **Compartilhar contas é contra os termos da Riot.** Este projeto serve para organizar as suas próprias contas.
+- **Sem garantias.** O software é fornecido "como está", conforme a licença MIT.
+
+As imagens de elo são carregadas da CommunityDragon na hora de exibir e pertencem à Riot Games; o app não as inclui.
+
+### Disclaimer (English)
+
+LeagueVault is an independent project, not affiliated with, endorsed or sponsored by Riot Games. Use it at your own risk: automating login may violate Riot's Terms of Service. The authors are not responsible for bans, suspensions, restrictions, penalties, lost accounts or data, or any other damage arising from the use of this software. It is provided "as is", under the MIT License.
 
 ## Desenvolvimento
 
