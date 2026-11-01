@@ -17,7 +17,7 @@ Olhe primeiro `src/main/riot.ts`: seletores do formulário em `RENDERER_SCRIPT` 
 
 ## Regras de dados externos
 - MMR: nunca consulte o whatismymmr.com fora de `MMR_REGION`. Qualquer outro subdomínio, como `br.`, devolve dados da NA.
-- Imagens de elo: carregue da CommunityDragon em tempo de execução. Não coloque artes da Riot no repositório. A pasta usada é `rcp-fe-lol-shared-components`, porque em `ranked-emblem` a arte é minúscula.
+- Imagens de elo: carregue da CommunityDragon em tempo de execução. Não coloque artes da Riot no repositório; a única exceção são as capturas de tela do app em `docs/images`, feitas sempre com contas fictícias. A pasta usada é `rcp-fe-lol-shared-components`, porque em `ranked-emblem` a arte é minúscula.
 
 ## Verificação
 `npm test`, `npm run typecheck`, `npm run build`. Se `node_modules/electron/dist` não existir: `node node_modules/electron/install.js`.

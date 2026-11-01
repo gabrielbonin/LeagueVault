@@ -1,6 +1,19 @@
 # LeagueVault
 
+<img src="build/icon.png" alt="Ícone do LeagueVault" width="120">
+
 Cofre local para as suas contas do League of Legends, com login em um clique.
+
+![Lista de contas com elo, win rate, pico e penalidades](docs/images/contas.png)
+
+<table>
+  <tr>
+    <td><img src="docs/images/criar-cofre.png" alt="Tela de criação do cofre com a senha mestra"></td>
+    <td><img src="docs/images/configuracoes.png" alt="Tela de configurações com os locais do cofre e da instalação"></td>
+  </tr>
+</table>
+
+<sub>Imagens com contas fictícias. Os emblemas de elo pertencem à Riot Games.</sub>
 
 - **Local:** sem servidor próprio, sem telemetria e sem instalação automática de atualizações. O app só acessa o OP.GG (elos), o whatismymmr.com (MMR), a CommunityDragon (imagens de elo), o GitHub (aviso de versão nova, que pode ser desligado) e o Riot Client do seu PC. Nenhuma senha sai do seu PC.
 - **Senha mestra:** contas criptografadas com AES-256-GCM e chave Argon2id. O cofre trava após 15 minutos parado.
