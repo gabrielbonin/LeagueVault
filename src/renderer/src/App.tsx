@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState, type FormEvent, type Keyboar
 import {
   REGIONS, TIERS,
   type AccountInput, type AccountStatus, type GameRestriction, type LoginErrorCode, type LoginStep,
-  type PublicAccount, type Tier, type VaultStatus,
+  type PublicAccount, type SeasonRank, type Tier, type VaultStatus,
 } from '../../shared/types'
 
 const LOGIN_STEPS: [LoginStep, string][] = [
@@ -203,8 +203,19 @@ function Penalties({ status }: { status?: AccountStatus }) {
   )
 }
 
+const EMBLEM_URL = 'https://raw.communitydragon.org/latest/plugins/rcp-fe-lol-shared-components/global/default'
+
+/** Riot's emblem, loaded at runtime and never bundled; a badge when offline. */
 function Emblem({ tier }: { tier: Tier }) {
+  const [failed, setFailed] = useState(false)
+  if (tier !== 'Unranked' && !failed) {
+    return <img className="emblem-image" alt="" src={`${EMBLEM_URL}/${tier.toLowerCase()}.png`} onError={() => setFailed(true)} />
+  }
   return <div className="emblem" style={{ '--tier': TIER_COLOR[tier] } as React.CSSProperties}><span>{tier === 'Unranked' ? '—' : tier[0]}</span></div>
+}
+
+function seasonText({ tier, division, lp }: SeasonRank): string {
+  return [tier, division, lp ? `${lp} PDL` : ''].filter(Boolean).join(' ')
 }
 
 function AccountCard({ account, disabled, onLogin, onEdit, onDelete }: {
@@ -216,6 +227,8 @@ function AccountCard({ account, disabled, onLogin, onEdit, onDelete }: {
 }) {
   const [name, tag] = account.riotId.split('#')
   const ranked = account.tier !== 'Unranked'
+  const games = (account.wins ?? 0) + (account.losses ?? 0)
+  const winRate = games ? Math.round(((account.wins ?? 0) / games) * 100) : 0
   return (
     <article className="card">
       <div className="card-head">
@@ -225,7 +238,11 @@ function AccountCard({ account, disabled, onLogin, onEdit, onDelete }: {
           <button aria-label="Excluir" title="Excluir" onClick={onDelete}>🗑</button>
         </div>
       </div>
-      <div className="card-meta"><span className="region">{account.region}</span><span className="login-name">{account.username}</span></div>
+      <div className="card-meta">
+        <span className="region">{account.region}</span>
+        {account.level !== undefined && <span className="level">Nível <b>{account.level}</b></span>}
+        <span className="login-name">{account.username}</span>
+      </div>
       <div className="card-rank">
         <Emblem tier={account.tier} />
         <div>
@@ -234,6 +251,12 @@ function AccountCard({ account, disabled, onLogin, onEdit, onDelete }: {
           {ranked && <div className="bar"><i style={{ width: `${Math.min(account.lp, 100)}%`, background: TIER_COLOR[account.tier] }} /></div>}
         </div>
       </div>
+      <dl className="stats">
+        {games > 0 && <div><dt>Win rate</dt><dd className={winRate >= 50 ? 'good' : 'bad'}>{winRate}% <small>{account.wins}V {account.losses}D</small></dd></div>}
+        {account.lastSeason && <div><dt>Temporada passada</dt><dd>{seasonText(account.lastSeason)}</dd></div>}
+        {account.peak && <div><dt>Pico</dt><dd>{seasonText(account.peak)} <small>{account.peak.season}</small></dd></div>}
+        {account.mmr && <div title={`Estimativa do whatismymmr.com. A Riot não divulga o MMR. Próximo de ${account.mmr.closestRank}.`}><dt>MMR estimado</dt><dd>~{account.mmr.avg} <small>±{account.mmr.err}</small></dd></div>}
+      </dl>
       {account.rankMissing && <div className="rank-missing">Riot ID não encontrado no OP.GG. Confira o nome e a região.</div>}
       {!account.riotId.trim() && <div className="rank-missing">Adicione o Riot ID para ver o elo.</div>}
       <Penalties status={account.status} />

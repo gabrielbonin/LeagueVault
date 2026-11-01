@@ -586,11 +586,12 @@ export async function readLeagueStatus(
     if (!api || session?.state !== 'SUCCEEDED') continue
     if (String(session.username).toLowerCase() !== username.toLowerCase()) return null
     await delay(5000) // Penalties load shortly after the session.
-    const [chat, ranked, honor, stats] = await Promise.all([
+    const [chat, ranked, honor, stats, summoner] = await Promise.all([
       api.get('/lol-player-behavior/v1/chat-restriction'),
       api.get('/lol-leaver-buster/v1/ranked-restriction'),
       api.get('/lol-honor-v2/v1/profile'),
       api.get('/lol-ranked/v1/current-ranked-stats'),
+      api.get('/lol-summoner/v1/current-summoner'),
     ])
     const level = honor?.status === 200 ? honor.body?.honorLevel : undefined
     const solo = stats?.status === 200 ? stats.body?.queueMap?.RANKED_SOLO_5x5 : undefined
@@ -600,7 +601,14 @@ export async function readLeagueStatus(
         ranked: ranked?.status === 200 ? restrictionFrom(ranked.body, Date.now()) : null,
         honorLevel: typeof level === 'number' ? level : null,
       },
-      rank: solo ? toRank(String(solo.tier ?? ''), String(solo.division ?? ''), Number(solo.leaguePoints) || 0) : null,
+      rank: solo
+        ? {
+            ...toRank(String(solo.tier ?? ''), String(solo.division ?? ''), Number(solo.leaguePoints) || 0),
+            ...(typeof solo.wins === 'number' ? { wins: solo.wins } : {}),
+            ...(typeof solo.losses === 'number' ? { losses: solo.losses } : {}),
+            ...(typeof summoner?.body?.summonerLevel === 'number' ? { level: summoner.body.summonerLevel } : {}),
+          }
+        : null,
     }
   }
   return null

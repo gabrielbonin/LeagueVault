@@ -141,3 +141,15 @@ select option { background: var(--panel); }
 .verify { margin: 0; padding: 8px 10px; color: #f0b232; border-left: 2px solid #f0b232; background: #f0b2321a; }
 .login-steps .ghost { justify-self: end; }
 @media (prefers-reduced-motion: reduce) { .login-mark i, .active .dot { animation: none; } }
+
+.emblem-image { width: 92px; height: 92px; flex: none; object-fit: contain; }
+.level { margin-right: auto; margin-left: 8px; }
+.level b { color: var(--gold-bright); font-weight: 600; }
+.stats { margin: 0; padding-top: 8px; display: grid; gap: 3px; font-size: 12px; border-top: 1px solid var(--line); }
+.stats:empty { display: none; }
+.stats div { display: flex; justify-content: space-between; gap: 8px; }
+.stats dt { color: #6f7f8c; }
+.stats dd { margin: 0; color: var(--gold-bright); font-weight: 600; text-align: right; }
+.stats small { font-weight: 400; color: #6f7f8c; }
+.stats .good { color: var(--teal); }
+.stats .bad { color: #f0837a; }

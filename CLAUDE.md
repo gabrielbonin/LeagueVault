@@ -13,7 +13,11 @@ Cofre local de contas do LoL (Electron + React + TypeScript). Responda em **port
 Olhe primeiro `src/main/riot.ts`: seletores do formulário em `RENDERER_SCRIPT` (`input[name=username]`, `data-testid="login-form"`), título do alvo CDP (`Riot Client`), estados de `/player-session-lifecycle/v1/session` (`PendingLoginStrategy`, `PendingProductContext`) e argumentos do `Riot Client.exe`. Compare com o projeto de referência, Tariolle/LeagueAccounts (`src/riot_renderer.rs`, `src/riot_client.rs`).
 
 ## Quando o elo parar de atualizar
-`src/main/ranks.ts` lê a meta description do OP.GG (`Nome#TAG / Gold 2 48 LP / ...`). Se o OP.GG mudar a página, ajuste `parseOpgg` e os testes em `tests/ranks.test.ts`. Mantenha o intervalo entre requisições.
+`src/main/ranks.ts` lê a meta description do OP.GG (`Nome#TAG / Gold 2 48 LP / ...`). Se o OP.GG mudar a página, ajuste `parseOpgg` e os testes em `tests/ranks.test.ts`. Temporadas vêm de `"rank_entries"` no payload (`parseSeasons`). Mantenha o intervalo entre requisições.
+
+## Regras de dados externos
+- MMR: nunca consulte o whatismymmr.com fora de `MMR_REGION`. Qualquer outro subdomínio, como `br.`, devolve dados da NA.
+- Imagens de elo: carregue da CommunityDragon em tempo de execução. Não coloque artes da Riot no repositório. A pasta usada é `rcp-fe-lol-shared-components`, porque em `ranked-emblem` a arte é minúscula.
 
 ## Verificação
 `npm test`, `npm run typecheck`, `npm run build`. Se `node_modules/electron/dist` não existir: `node node_modules/electron/install.js`.

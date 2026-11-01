@@ -2,18 +2,20 @@
 
 Cofre local para as suas contas do League of Legends, com login em um clique.
 
-- **Local:** sem servidor próprio, sem telemetria e sem atualização automática. O app só acessa o OP.GG (elos) e o Riot Client do seu PC.
+- **Local:** sem servidor próprio, sem telemetria e sem atualização automática. O app só acessa o OP.GG (elos), o whatismymmr.com (MMR), a CommunityDragon (imagens de elo) e o Riot Client do seu PC. Nenhuma senha sai do seu PC.
 - **Senha mestra:** contas criptografadas com AES-256-GCM e chave Argon2id. O cofre trava após 15 minutos parado.
 - **A interface nunca recebe as senhas:** só o processo principal do Electron as lê, na hora do login.
 - **Troca de conta:** encerra a sessão atual, entra na escolhida e abre o League.
 - **Captcha e 2FA não são burlados:** a janela da Riot abre para você resolver.
 - **Elo automático:** vem do OP.GG ao abrir o cofre e a cada 30 minutos, e do cliente do League quando você entra na conta.
+- **Estatísticas:** win rate, temporada passada, pico e nível.
+- **MMR estimado:** só para NA, EUW, EUNE e KR, as regiões cobertas pelo whatismymmr.com. A Riot não divulga o MMR, e a busca usa só o nome, então pode vir de outro jogador com o mesmo nome.
 - **Penalidades:** banimento, restrição de chat e de ranqueada e honra baixa, com a última leitura de cada conta.
 - **Backup:** é o próprio arquivo criptografado; abre em outro PC com a mesma senha mestra.
 
 > **Sem recuperação:** se esquecer a senha mestra, não há como recuperar as contas.
 
-> Projeto não afiliado à Riot Games. Login automatizado pode contrariar os termos da Riot; use por sua conta e risco. Não usa logos, fontes nem artes da Riot.
+> Projeto não afiliado à Riot Games. Login automatizado pode contrariar os termos da Riot; use por sua conta e risco. O app não inclui artes da Riot: as imagens de elo são carregadas da CommunityDragon na hora de exibir e pertencem à Riot Games.
 
 ## Desenvolvimento
 
