@@ -8,6 +8,25 @@ export const REGIONS = [
   'BR', 'NA', 'LAN', 'LAS', 'EUW', 'EUNE', 'TR', 'RU', 'KR', 'JP', 'OCE', 'SEA', 'VN', 'TW',
 ] as const
 
+export interface AccountBan {
+  permanent: boolean
+  until: number | null
+}
+
+export interface GameRestriction {
+  gamesRemaining: number | null
+  until: number | null
+}
+
+/** Last reading from Riot. It can only be read while the account is signed in. */
+export interface AccountStatus {
+  checkedAt: number
+  ban: AccountBan | null
+  chat: GameRestriction | null
+  ranked: GameRestriction | null
+  honorLevel: number | null
+}
+
 /** Stored in the encrypted vault. Never crosses to the renderer as is. */
 export interface Account {
   id: string
@@ -19,6 +38,7 @@ export interface Account {
   division: string
   lp: number
   note: string
+  status?: AccountStatus
 }
 
 /** What the interface is allowed to see: everything except the password. */
@@ -46,6 +66,7 @@ export type LoginErrorCode =
   | 'league-running'
   | 'game-running'
   | 'rejected'
+  | 'banned'
   | 'rate-limited'
   | 'captcha-rejected'
   | 'mismatch'
@@ -70,5 +91,6 @@ export interface Api {
   importBackup(): Promise<boolean>
   onLoginStep(listener: (step: LoginStep) => void): () => void
   onLocked(listener: () => void): () => void
+  onAccountsChanged(listener: (accounts: PublicAccount[]) => void): () => void
   windowControl(action: 'minimize' | 'maximize' | 'close'): void
 }

@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react'
+import { useCallback, useEffect, useMemo, useState, type FormEvent, type KeyboardEvent, type MouseEvent } from 'react'
 import {
   REGIONS, TIERS,
-  type AccountInput, type LoginErrorCode, type LoginStep, type PublicAccount, type Tier, type VaultStatus,
+  type AccountInput, type AccountStatus, type GameRestriction, type LoginErrorCode, type LoginStep,
+  type PublicAccount, type Tier, type VaultStatus,
 } from '../../shared/types'
 
 const STEP_TEXT: Record<LoginStep, string> = {
@@ -19,6 +20,7 @@ const ERROR_TEXT: Record<LoginErrorCode, string> = {
   'league-running': 'O League está aberto.',
   'game-running': 'Há uma partida em andamento. Termine antes de trocar de conta.',
   rejected: 'A Riot recusou o login. Confira o usuário e a senha.',
+  banned: 'Esta conta está banida, então o League não foi aberto.',
   'rate-limited': 'Muitas tentativas. Aguarde um pouco.',
   'captcha-rejected': 'O captcha foi recusado. Tente novamente.',
   mismatch: 'O Riot Client entrou em outra conta.',
@@ -47,6 +49,42 @@ function Titlebar() {
         <button aria-label="Fechar" onClick={() => window.api.windowControl('close')}>✕</button>
       </div>
     </header>
+  )
+}
+
+/** Password input that warns when Caps Lock is on. */
+function PasswordInput({ value, onChange, placeholder, autoFocus }: {
+  value: string
+  onChange: (value: string) => void
+  placeholder?: string
+  autoFocus?: boolean
+}) {
+  const [capsLock, setCapsLock] = useState(false)
+  const check = (event: KeyboardEvent | MouseEvent): void => setCapsLock(event.getModifierState('CapsLock'))
+  return (
+    <div className="password">
+      <input
+        type="password" placeholder={placeholder} autoFocus={autoFocus} value={value}
+        onChange={e => onChange(e.target.value)}
+        onKeyDown={check} onKeyUp={check} onClick={check} onBlur={() => setCapsLock(false)}
+      />
+      {capsLock && <span className="caps" role="status">⇪ Caps Lock ativado</span>}
+    </div>
+  )
+}
+
+function SecurityHelp() {
+  return (
+    <details className="help" open>
+      <summary>Por que uma senha mestra?</summary>
+      <ul>
+        <li><b>Protege as senhas das suas contas.</b> Elas ficam criptografadas neste PC e só abrem com a senha mestra.</li>
+        <li><b>Mesmo com o arquivo do cofre, ninguém lê as contas sem ela.</b> Nem outros programas do seu PC, nem quem usar seu computador.</li>
+        <li><b>Nada sai do seu PC.</b> Não existe servidor nem conta online.</li>
+        <li><b>O cofre trava sozinho</b> depois de 15 minutos sem uso.</li>
+        <li><b>Por isso, não há como recuperá-la.</b> Se esquecer, você perde o cofre e precisa cadastrar as contas de novo. Guarde num lugar seguro.</li>
+      </ul>
+    </details>
   )
 }
 
@@ -83,9 +121,10 @@ function LockScreen({ exists, onDone }: { exists: boolean; onDone: () => void })
         <h1>{exists ? 'COFRE TRAVADO' : 'CRIE SEU COFRE'}</h1>
         <p>{exists
           ? 'Digite sua senha mestra para acessar as contas.'
-          : 'A senha mestra protege todas as contas. Se você esquecê-la, não há como recuperar.'}</p>
-        <input type="password" placeholder="Senha mestra" autoFocus value={master} onChange={e => setMaster(e.target.value)} />
-        {!exists && <input type="password" placeholder="Repita a senha mestra" value={confirm} onChange={e => setConfirm(e.target.value)} />}
+          : 'Crie a senha que vai proteger todas as suas contas.'}</p>
+        {!exists && <SecurityHelp />}
+        <PasswordInput placeholder="Senha mestra" autoFocus value={master} onChange={setMaster} />
+        {!exists && <PasswordInput placeholder="Repita a senha mestra" value={confirm} onChange={setConfirm} />}
         {error && <div className="error">{error}</div>}
         <button className="gold" disabled={busy}>{busy ? 'AGUARDE...' : exists ? 'DESTRAVAR' : 'CRIAR COFRE'}</button>
       </form>
@@ -114,7 +153,7 @@ function AccountForm({ initial, onClose, onSaved }: {
       <form className="modal" onSubmit={submit} onMouseDown={e => e.stopPropagation()}>
         <h2>{editing ? 'EDITAR CONTA' : 'ADICIONAR CONTA'}</h2>
         <label>Usuário da Riot<input autoFocus value={form.username} onChange={e => set('username', e.target.value)} /></label>
-        <label>Senha<input type="password" placeholder={editing ? 'Deixe vazio para manter a atual' : ''} value={form.password} onChange={e => set('password', e.target.value)} /></label>
+        <label>Senha<PasswordInput placeholder={editing ? 'Deixe vazio para manter a atual' : ''} value={form.password} onChange={value => set('password', value)} /></label>
         <label>Riot ID<input placeholder="Nome#TAG" value={form.riotId} onChange={e => set('riotId', e.target.value)} /></label>
         <div className="row">
           <label>Região<select value={form.region} onChange={e => set('region', e.target.value)}>{REGIONS.map(r => <option key={r}>{r}</option>)}</select></label>
@@ -129,6 +168,38 @@ function AccountForm({ initial, onClose, onSaved }: {
           <button className="gold">SALVAR</button>
         </div>
       </form>
+    </div>
+  )
+}
+
+function remaining(until: number): string {
+  const hours = Math.max(1, Math.ceil((until - Date.now()) / 3_600_000))
+  return hours > 48 ? `${Math.ceil(hours / 24)}D` : `${hours}H`
+}
+
+function restrictionText({ gamesRemaining, until }: GameRestriction): string {
+  return [gamesRemaining !== null && `${gamesRemaining}P`, until !== null && until > Date.now() && remaining(until)]
+    .filter(Boolean).join(' · ')
+}
+
+/** Chips for the last reading; `P` is games left and `H`/`D` time left. */
+function Penalties({ status }: { status?: AccountStatus }) {
+  if (!status) return <div className="penalties unknown">Status: entre na conta para verificar</div>
+  const chips: [string, string][] = []
+  const { ban, chat, ranked, honorLevel } = status
+  if (ban?.permanent) chips.push(['Banida permanentemente', 'Banimento permanente'])
+  else if (ban?.until && ban.until > Date.now()) chips.push([`Banida ${remaining(ban.until)}`, 'Banimento temporário'])
+  const chatText = chat && restrictionText(chat)
+  if (chatText) chips.push([`Chat ${chatText}`, 'Restrição de chat'])
+  const rankedText = ranked && restrictionText(ranked)
+  if (rankedText) chips.push([`Ranqueada ${rankedText}`, 'Restrição de ranqueada'])
+  if (honorLevel !== null && honorLevel < 2) chips.push(['Honra baixa', `Honra nível ${honorLevel}`])
+  const checked = `Verificado em ${new Date(status.checkedAt).toLocaleString('pt-BR')}`
+  if (!chips.length) return <div className="penalties clean" title={checked}>✓ Sem penalidades</div>
+  return (
+    <div className="penalties" title={checked}>
+      <span>PENALIDADES ATIVAS</span>
+      <div>{chips.map(([text, title]) => <b key={text} title={title}>{text}</b>)}</div>
     </div>
   )
 }
@@ -164,6 +235,7 @@ function AccountCard({ account, disabled, onLogin, onEdit, onDelete }: {
           {ranked && <div className="bar"><i style={{ width: `${Math.min(account.lp, 100)}%`, background: TIER_COLOR[account.tier] }} /></div>}
         </div>
       </div>
+      <Penalties status={account.status} />
       <p className="note">{account.note || ' '}</p>
       <button className="login" disabled={disabled} onClick={onLogin}>› ENTRAR</button>
     </article>
@@ -183,6 +255,7 @@ function Vault({ onLock }: { onLock: () => void }) {
 
   useEffect(() => { void window.api.list().then(setAccounts) }, [])
   useEffect(() => window.api.onLoginStep(setStep), [])
+  useEffect(() => window.api.onAccountsChanged(setAccounts), [])
 
   const visible = useMemo(() => {
     const query = search.toLowerCase()

@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer } from 'electron'
-import type { Api, LoginStep } from '../shared/types'
+import type { Api, LoginStep, PublicAccount } from '../shared/types'
 
 const api: Api = {
   status: () => ipcRenderer.invoke('vault:status'),
@@ -22,6 +22,11 @@ const api: Api = {
     const wrapped = (): void => listener()
     ipcRenderer.on('vault:locked', wrapped)
     return () => ipcRenderer.removeListener('vault:locked', wrapped)
+  },
+  onAccountsChanged(listener) {
+    const wrapped = (_event: unknown, accounts: PublicAccount[]): void => listener(accounts)
+    ipcRenderer.on('vault:changed', wrapped)
+    return () => ipcRenderer.removeListener('vault:changed', wrapped)
   },
   windowControl: action => ipcRenderer.send('window:control', action),
 }

@@ -12,7 +12,7 @@ import { createServer } from 'node:net'
 import { dirname, join, sep } from 'node:path'
 import { promisify } from 'node:util'
 import WebSocket from 'ws'
-import type { LoginErrorCode, LoginStep } from '../shared/types'
+import type { AccountBan, AccountStatus, GameRestriction, LoginErrorCode, LoginStep } from '../shared/types'
 
 const run = promisify(execFile)
 const delay = (ms: number): Promise<void> => new Promise(resolve => setTimeout(resolve, ms))
@@ -29,6 +29,7 @@ export interface LoginRequest {
   launchGame: boolean
   closeLeague: boolean
   onStep: (step: LoginStep) => void
+  onStatus: (status: Partial<AccountStatus>) => void
   signal: AbortSignal
 }
 
@@ -77,9 +78,9 @@ class LocalApi {
     readonly pid: number,
   ) {}
 
-  static read(): LocalApi | null {
+  static read(path = lockfilePath()): LocalApi | null {
     try {
-      const [, pid, port, token] = readFileSync(lockfilePath(), 'utf8').trim().split(':')
+      const [, pid, port, token] = readFileSync(path, 'utf8').trim().split(':')
       if (!Number(port) || !token) return null
       return new LocalApi(Number(port), token, Number(pid))
     } catch {
@@ -517,7 +518,11 @@ export async function login(request: LoginRequest): Promise<void> {
       onStep('signing-in')
       await renderer.signIn(request)
     }
+    const ban = banFrom(await LocalApi.read()?.userinfo(), Date.now())
+    request.onStatus({ ban })
     if (!launchGame) return
+    // Riot disconnects a suspended account as soon as the game starts.
+    if (ban) throw new LoginError('banned')
 
     await awaitProductContext(signal)
     const api = LocalApi.read()
@@ -532,4 +537,61 @@ export async function login(request: LoginRequest): Promise<void> {
     await renderer.restore()
   }
   onStep('done')
+}
+
+/** League suspension from Riot's userinfo; chat restrictions do not count. */
+export function banFrom(info: any, now: number): AccountBan | null { // eslint-disable-line @typescript-eslint/no-explicit-any
+  const restrictions = info?.ban?.restrictions
+  if (!Array.isArray(restrictions)) return null
+  let until = 0
+  for (const restriction of restrictions) {
+    if (restriction?.scope !== 'lol') continue
+    if (restriction.type === 'PERMANENT_BAN') return { permanent: true, until: null }
+    const expires = restriction.type === 'TIME_BAN' ? Number(restriction.dat?.expirationMillis) : 0
+    if (expires > now) until = Math.max(until, expires)
+  }
+  return until ? { permanent: false, until } : null
+}
+
+/** Active restriction from a League response; null means there is none. */
+export function restrictionFrom(body: any, now: number): GameRestriction | null { // eslint-disable-line @typescript-eslint/no-explicit-any
+  if (!body || typeof body !== 'object') return null
+  const games = Object.entries(body).find(
+    ([key, value]) => /gamesRemaining/i.test(key) && typeof value === 'number',
+  )?.[1] as number | undefined
+  const expires = Number(body.expirationMillis) || 0
+  const active = {
+    gamesRemaining: games && games > 0 ? games : null,
+    until: expires > now ? expires : null,
+  }
+  return active.gamesRemaining !== null || active.until !== null ? active : null
+}
+
+/**
+ * Waits for the League client of `username`, then reads its penalties. They
+ * only exist there, for the signed-in account, so this runs after a launch.
+ */
+export async function readLeagueStatus(username: string): Promise<Partial<AccountStatus> | null> {
+  const start = Date.now()
+  while (Date.now() - start < 180_000) {
+    await delay(3000)
+    const [client] = await processes(['LeagueClientUx.exe']).catch(() => [])
+    const api = client?.path ? LocalApi.read(join(dirname(client.path), 'lockfile')) : null
+    const session = (await api?.get('/lol-login/v1/session'))?.body
+    if (!api || session?.state !== 'SUCCEEDED') continue
+    if (String(session.username).toLowerCase() !== username.toLowerCase()) return null
+    await delay(5000) // Penalties load shortly after the session.
+    const [chat, ranked, honor] = await Promise.all([
+      api.get('/lol-player-behavior/v1/chat-restriction'),
+      api.get('/lol-leaver-buster/v1/ranked-restriction'),
+      api.get('/lol-honor-v2/v1/profile'),
+    ])
+    const level = honor?.status === 200 ? honor.body?.honorLevel : undefined
+    return {
+      chat: chat?.status === 200 ? restrictionFrom(chat.body, Date.now()) : null,
+      ranked: ranked?.status === 200 ? restrictionFrom(ranked.body, Date.now()) : null,
+      honorLevel: typeof level === 'number' ? level : null,
+    }
+  }
+  return null
 }

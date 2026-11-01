@@ -2,7 +2,7 @@ import { createCipheriv, createDecipheriv, randomBytes, randomUUID } from 'node:
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
 import { dirname } from 'node:path'
 import { argon2id } from 'hash-wasm'
-import type { Account, AccountInput, PublicAccount } from '../shared/types'
+import type { Account, AccountInput, AccountStatus, PublicAccount } from '../shared/types'
 
 const AAD = Buffer.from('leaguevault-v1')
 const KDF = { iterations: 3, memorySize: 64 * 1024, parallelism: 1, hashLength: 32 }
@@ -112,6 +112,18 @@ export class Vault {
     this.accounts = current
       ? this.accounts.map(existing => (existing.id === account.id ? account : existing))
       : [...this.accounts, account]
+    this.persist()
+    return this.list()
+  }
+
+  /** Merges a reading from Riot. A locked or deleted account is left alone. */
+  updateStatus(id: string, status: Partial<AccountStatus>): PublicAccount[] | null {
+    const account = this.key ? this.accounts.find(item => item.id === id) : undefined
+    if (!account) return null
+    account.status = {
+      ban: null, chat: null, ranked: null, honorLevel: null,
+      ...account.status, ...status, checkedAt: Date.now(),
+    }
     this.persist()
     return this.list()
   }

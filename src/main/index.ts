@@ -1,7 +1,7 @@
 import { join } from 'node:path'
 import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron'
-import type { AccountInput, LoginResult, LoginStep } from '../shared/types'
-import { login, LoginError } from './riot'
+import type { AccountInput, AccountStatus, LoginResult, LoginStep } from '../shared/types'
+import { login, LoginError, readLeagueStatus } from './riot'
 import { Vault } from './vault'
 
 const AUTO_LOCK_MS = 15 * 60 * 1000
@@ -10,6 +10,11 @@ let window: BrowserWindow | null = null
 let vault: Vault
 let lockTimer: NodeJS.Timeout | null = null
 let loginAbort: AbortController | null = null
+
+function updateStatus(id: string, status: Partial<AccountStatus>): void {
+  const accounts = vault.updateStatus(id, status)
+  if (accounts) window?.webContents.send('vault:changed', accounts)
+}
 
 function lockNow(): void {
   vault.lock()
@@ -71,7 +76,11 @@ function registerIpc(): void {
         closeLeague,
         signal: loginAbort.signal,
         onStep: (step: LoginStep) => window?.webContents.send('riot:step', step),
+        onStatus: status => updateStatus(id, status),
       })
+      if (launchGame) {
+        void readLeagueStatus(account.username).then(status => status && updateStatus(id, status))
+      }
       return { ok: true }
     } catch (error) {
       return { ok: false, code: error instanceof LoginError ? error.code : 'failed' }
