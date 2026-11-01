@@ -12,7 +12,8 @@ import { createServer } from 'node:net'
 import { dirname, join, sep } from 'node:path'
 import { promisify } from 'node:util'
 import WebSocket from 'ws'
-import type { AccountBan, AccountStatus, GameRestriction, LoginErrorCode, LoginStep } from '../shared/types'
+import type { AccountBan, AccountStatus, GameRestriction, LoginErrorCode, LoginStep, RankReading } from '../shared/types'
+import { toRank } from './ranks'
 
 const run = promisify(execFile)
 const delay = (ms: number): Promise<void> => new Promise(resolve => setTimeout(resolve, ms))
@@ -327,6 +328,7 @@ class Renderer {
 
   async signIn(request: LoginRequest): Promise<void> {
     const { username, password, onStep, signal } = request
+    onStep('connecting')
     this.needsRestore = true
     await stopClient(this.service, signal)
     startService(this.service, true)
@@ -387,11 +389,13 @@ class Renderer {
     }
     await sleep(1500, signal) // Riot's own auth setup settles after the form appears.
 
+    onStep('typing')
     const fill = `globalThis.__leagueVault.fill(...${JSON.stringify([username, password])})`
     if ((await this.cdp.eval(fill)) !== true) throw new LoginError('failed')
     await sleep(300, signal)
     if ((await this.cdp.eval('globalThis.__leagueVault.submit()')) !== true) throw new LoginError('failed')
 
+    onStep('confirming')
     await this.awaitResult(api, username, onStep, signal)
   }
 
@@ -515,7 +519,6 @@ export async function login(request: LoginRequest): Promise<void> {
     }
 
     if (!alreadySignedIn) {
-      onStep('signing-in')
       await renderer.signIn(request)
     }
     const ban = banFrom(await LocalApi.read()?.userinfo(), Date.now())
@@ -571,7 +574,9 @@ export function restrictionFrom(body: any, now: number): GameRestriction | null 
  * Waits for the League client of `username`, then reads its penalties. They
  * only exist there, for the signed-in account, so this runs after a launch.
  */
-export async function readLeagueStatus(username: string): Promise<Partial<AccountStatus> | null> {
+export async function readLeagueStatus(
+  username: string,
+): Promise<{ status: Partial<AccountStatus>; rank: RankReading | null } | null> {
   const start = Date.now()
   while (Date.now() - start < 180_000) {
     await delay(3000)
@@ -581,16 +586,21 @@ export async function readLeagueStatus(username: string): Promise<Partial<Accoun
     if (!api || session?.state !== 'SUCCEEDED') continue
     if (String(session.username).toLowerCase() !== username.toLowerCase()) return null
     await delay(5000) // Penalties load shortly after the session.
-    const [chat, ranked, honor] = await Promise.all([
+    const [chat, ranked, honor, stats] = await Promise.all([
       api.get('/lol-player-behavior/v1/chat-restriction'),
       api.get('/lol-leaver-buster/v1/ranked-restriction'),
       api.get('/lol-honor-v2/v1/profile'),
+      api.get('/lol-ranked/v1/current-ranked-stats'),
     ])
     const level = honor?.status === 200 ? honor.body?.honorLevel : undefined
+    const solo = stats?.status === 200 ? stats.body?.queueMap?.RANKED_SOLO_5x5 : undefined
     return {
-      chat: chat?.status === 200 ? restrictionFrom(chat.body, Date.now()) : null,
-      ranked: ranked?.status === 200 ? restrictionFrom(ranked.body, Date.now()) : null,
-      honorLevel: typeof level === 'number' ? level : null,
+      status: {
+        chat: chat?.status === 200 ? restrictionFrom(chat.body, Date.now()) : null,
+        ranked: ranked?.status === 200 ? restrictionFrom(ranked.body, Date.now()) : null,
+        honorLevel: typeof level === 'number' ? level : null,
+      },
+      rank: solo ? toRank(String(solo.tier ?? ''), String(solo.division ?? ''), Number(solo.leaguePoints) || 0) : null,
     }
   }
   return null

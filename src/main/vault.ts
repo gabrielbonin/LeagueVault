@@ -2,7 +2,7 @@ import { createCipheriv, createDecipheriv, randomBytes, randomUUID } from 'node:
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
 import { dirname } from 'node:path'
 import { argon2id } from 'hash-wasm'
-import type { Account, AccountInput, AccountStatus, PublicAccount } from '../shared/types'
+import type { Account, AccountInput, AccountStatus, PublicAccount, RankReading } from '../shared/types'
 
 const AAD = Buffer.from('leaguevault-v1')
 const KDF = { iterations: 3, memorySize: 64 * 1024, parallelism: 1, hashLength: 32 }
@@ -112,6 +112,19 @@ export class Vault {
     this.accounts = current
       ? this.accounts.map(existing => (existing.id === account.id ? account : existing))
       : [...this.accounts, account]
+    this.persist()
+    return this.list()
+  }
+
+  /** `'missing'` keeps the last rank and flags the Riot ID. */
+  updateRank(id: string, rank: RankReading | 'missing'): PublicAccount[] | null {
+    const account = this.key ? this.accounts.find(item => item.id === id) : undefined
+    if (!account) return null
+    if (rank === 'missing') {
+      account.rankMissing = true
+    } else {
+      Object.assign(account, rank, { rankMissing: false, rankCheckedAt: Date.now() })
+    }
     this.persist()
     return this.list()
   }

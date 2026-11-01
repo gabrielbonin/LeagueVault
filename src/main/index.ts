@@ -1,22 +1,59 @@
 import { join } from 'node:path'
 import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron'
 import type { AccountInput, AccountStatus, LoginResult, LoginStep } from '../shared/types'
+import { fetchRank } from './ranks'
 import { login, LoginError, readLeagueStatus } from './riot'
 import { Vault } from './vault'
 
 const AUTO_LOCK_MS = 15 * 60 * 1000
+const RANK_REFRESH_MS = 30 * 60 * 1000
+const RANK_REQUEST_GAP_MS = 1500
 
 let window: BrowserWindow | null = null
 let vault: Vault
 let lockTimer: NodeJS.Timeout | null = null
 let loginAbort: AbortController | null = null
+let rankTimer: NodeJS.Timeout | null = null
+let refreshingRanks = false
 
 function updateStatus(id: string, status: Partial<AccountStatus>): void {
   const accounts = vault.updateStatus(id, status)
   if (accounts) window?.webContents.send('vault:changed', accounts)
 }
 
+async function refreshRank(id: string, region: string, riotId: string): Promise<void> {
+  const rank = await fetchRank(region, riotId)
+  const accounts = rank ? vault.updateRank(id, rank) : null
+  if (accounts) window?.webContents.send('vault:changed', accounts)
+}
+
+/** One account at a time, so OP.GG is not hammered. */
+async function refreshRanks(): Promise<void> {
+  if (refreshingRanks || !vault.unlocked) return
+  refreshingRanks = true
+  window?.webContents.send('ranks:refreshing', true)
+  try {
+    for (const { id, region, riotId } of vault.list()) {
+      if (!vault.unlocked) break
+      if (!riotId.trim()) continue
+      await refreshRank(id, region, riotId)
+      await new Promise(resolve => setTimeout(resolve, RANK_REQUEST_GAP_MS))
+    }
+  } finally {
+    refreshingRanks = false
+    window?.webContents.send('ranks:refreshing', false)
+  }
+}
+
+function startRankRefresh(): void {
+  if (rankTimer) clearInterval(rankTimer)
+  rankTimer = setInterval(() => void refreshRanks(), RANK_REFRESH_MS)
+  void refreshRanks()
+}
+
 function lockNow(): void {
+  if (rankTimer) clearInterval(rankTimer)
+  rankTimer = null
   vault.lock()
   window?.webContents.send('vault:locked')
 }
@@ -37,11 +74,24 @@ function handle<A extends unknown[], R>(channel: string, fn: (...args: A) => R):
 
 function registerIpc(): void {
   handle('vault:status', () => ({ exists: vault.exists, unlocked: vault.unlocked }))
-  handle('vault:create', (master: string) => vault.create(master))
-  handle('vault:unlock', (master: string) => vault.unlock(master))
+  handle('vault:create', async (master: string) => {
+    await vault.create(master)
+    startRankRefresh()
+  })
+  handle('vault:unlock', async (master: string) => {
+    const unlocked = await vault.unlock(master)
+    if (unlocked) startRankRefresh()
+    return unlocked
+  })
   handle('vault:lock', lockNow)
   handle('vault:list', () => vault.list())
-  handle('vault:save', (input: AccountInput) => vault.save(input))
+  handle('vault:save', (input: AccountInput) => {
+    const accounts = vault.save(input)
+    const saved = accounts.find(item => item.username === input.username.trim() && item.region === input.region)
+    if (saved?.riotId.trim()) void refreshRank(saved.id, saved.region, saved.riotId)
+    return accounts
+  })
+  handle('ranks:refresh', refreshRanks)
   handle('vault:remove', (id: string) => vault.remove(id))
 
   handle('vault:export', async () => {
@@ -79,7 +129,12 @@ function registerIpc(): void {
         onStatus: status => updateStatus(id, status),
       })
       if (launchGame) {
-        void readLeagueStatus(account.username).then(status => status && updateStatus(id, status))
+        void readLeagueStatus(account.username).then(reading => {
+          if (!reading) return
+          updateStatus(id, reading.status)
+          const accounts = reading.rank && vault.updateRank(id, reading.rank)
+          if (accounts) window?.webContents.send('vault:changed', accounts)
+        })
       }
       return { ok: true }
     } catch (error) {

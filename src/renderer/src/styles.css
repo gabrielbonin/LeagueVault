@@ -113,3 +113,31 @@ select option { background: var(--panel); }
 .penalties > div { display: flex; flex-wrap: wrap; gap: 4px; }
 .penalties b { padding: 1px 8px; border-radius: 9px; font-weight: 600; color: #fff; background: #c8352e; }
 .card .login { margin-top: auto; }
+
+.hint { margin: 0; font-size: 12px; }
+.modal .row { grid-template-columns: 2fr 1fr; }
+.rank-missing { font-size: 11px; color: #f0b232; }
+.side-actions button:disabled { opacity: .6; cursor: default; }
+
+.login-screen { position: fixed; inset: 44px 0 0; z-index: 20; display: grid; grid-template-columns: 1fr 1fr; align-items: center; background: radial-gradient(800px 500px at 30% 50%, #0e2a3a88, transparent), var(--bg); }
+.login-side { display: grid; justify-items: center; gap: 8px; padding: 40px; border-right: 1px solid #785a2866; }
+.login-side h2 { margin-top: 28px; font-size: 22px; }
+.login-side span { color: var(--gold); }
+.login-mark { position: relative; width: 170px; height: 110px; }
+.login-mark i { position: absolute; top: 50%; left: 50%; width: 70px; height: 70px; margin: -35px; border: 2px solid var(--gold); transform: rotate(45deg); animation: pulse 1.6s ease-in-out infinite; }
+.login-mark i:nth-child(1) { translate: -42px 0; opacity: .5; }
+.login-mark i:nth-child(3) { translate: 42px 0; opacity: .5; animation-delay: .4s; }
+@keyframes pulse { 50% { border-color: var(--teal); box-shadow: 0 0 14px #0ac8b966; } }
+.login-steps { width: 340px; display: grid; gap: 14px; justify-self: center; }
+.login-bar { height: 4px; background: #ffffff14; }
+.login-bar i { display: block; height: 100%; background: linear-gradient(90deg, #785a28, var(--gold-bright)); transition: width .3s; }
+.login-steps ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.login-steps li { display: flex; align-items: center; gap: 12px; padding: 7px 8px; color: #5b6b78; }
+.login-steps li.done { color: var(--text); }
+.login-steps li.active { color: var(--gold-bright); background: #ffffff0a; }
+.dot { width: 18px; height: 18px; flex: none; display: grid; place-items: center; font-size: 11px; color: var(--gold); border: 1px solid #5b6b78; border-radius: 50%; }
+.done .dot { border-color: transparent; }
+.active .dot { border-color: var(--teal) transparent var(--teal) var(--teal); animation: spin 1s linear infinite; }
+.verify { margin: 0; padding: 8px 10px; color: #f0b232; border-left: 2px solid #f0b232; background: #f0b2321a; }
+.login-steps .ghost { justify-self: end; }
+@media (prefers-reduced-motion: reduce) { .login-mark i, .active .dot { animation: none; } }

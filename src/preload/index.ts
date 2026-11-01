@@ -11,6 +11,7 @@ const api: Api = {
   remove: id => ipcRenderer.invoke('vault:remove', id),
   login: (id, launchGame, closeLeague) => ipcRenderer.invoke('riot:login', id, launchGame, closeLeague),
   cancelLogin: () => ipcRenderer.invoke('riot:cancel'),
+  refreshRanks: () => ipcRenderer.invoke('ranks:refresh'),
   exportBackup: () => ipcRenderer.invoke('vault:export'),
   importBackup: () => ipcRenderer.invoke('vault:import'),
   onLoginStep(listener) {
@@ -27,6 +28,11 @@ const api: Api = {
     const wrapped = (_event: unknown, accounts: PublicAccount[]): void => listener(accounts)
     ipcRenderer.on('vault:changed', wrapped)
     return () => ipcRenderer.removeListener('vault:changed', wrapped)
+  },
+  onRanksRefreshing(listener) {
+    const wrapped = (_event: unknown, refreshing: boolean): void => listener(refreshing)
+    ipcRenderer.on('ranks:refreshing', wrapped)
+    return () => ipcRenderer.removeListener('ranks:refreshing', wrapped)
   },
   windowControl: action => ipcRenderer.send('window:control', action),
 }

@@ -2,11 +2,13 @@
 
 Cofre local para as suas contas do League of Legends, com login em um clique.
 
-- **Local:** sem servidor, sem telemetria e sem atualização automática.
+- **Local:** sem servidor próprio, sem telemetria e sem atualização automática. O app só acessa o OP.GG (elos) e o Riot Client do seu PC.
 - **Senha mestra:** contas criptografadas com AES-256-GCM e chave Argon2id. O cofre trava após 15 minutos parado.
 - **A interface nunca recebe as senhas:** só o processo principal do Electron as lê, na hora do login.
 - **Troca de conta:** encerra a sessão atual, entra na escolhida e abre o League.
 - **Captcha e 2FA não são burlados:** a janela da Riot abre para você resolver.
+- **Elo automático:** vem do OP.GG ao abrir o cofre e a cada 30 minutos, e do cliente do League quando você entra na conta.
+- **Penalidades:** banimento, restrição de chat e de ranqueada e honra baixa, com a última leitura de cada conta.
 - **Backup:** é o próprio arquivo criptografado; abre em outro PC com a mesma senha mestra.
 
 > **Sem recuperação:** se esquecer a senha mestra, não há como recuperar as contas.
@@ -35,6 +37,7 @@ npm run dev
 |---|---|
 | `src/main/vault.ts` | Cofre criptografado |
 | `src/main/riot.ts` | Automação do Riot Client |
+| `src/main/ranks.ts` | Leitura do elo no OP.GG |
 | `src/main/index.ts` | Janela, IPC e trava automática |
 | `src/preload/index.ts` | Ponte segura com a interface |
 | `src/renderer/` | Interface React |

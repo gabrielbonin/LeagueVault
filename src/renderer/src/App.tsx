@@ -5,15 +5,15 @@ import {
   type PublicAccount, type Tier, type VaultStatus,
 } from '../../shared/types'
 
-const STEP_TEXT: Record<LoginStep, string> = {
-  'closing-league': 'Fechando o League...',
-  'opening-client': 'Preparando o Riot Client...',
-  'signing-out': 'Saindo da conta atual...',
-  'signing-in': 'Entrando na conta...',
-  verification: 'Resolva o captcha ou o 2FA na janela da Riot',
-  'launching-game': 'Abrindo o League...',
-  done: 'Pronto!',
-}
+const LOGIN_STEPS: [LoginStep, string][] = [
+  ['closing-league', 'Fechando o League'],
+  ['opening-client', 'Abrindo o Riot Client'],
+  ['signing-out', 'Saindo da conta atual'],
+  ['connecting', 'Conectando à tela de login'],
+  ['typing', 'Preenchendo os dados'],
+  ['confirming', 'Confirmando o login'],
+  ['launching-game', 'Abrindo o League'],
+]
 
 const ERROR_TEXT: Record<LoginErrorCode, string> = {
   'client-missing': 'Riot Client não encontrado neste PC.',
@@ -145,6 +145,7 @@ function AccountForm({ initial, onClose, onSaved }: {
   async function submit(event: FormEvent): Promise<void> {
     event.preventDefault()
     if (!form.username.trim() || (!editing && !form.password)) return setError('Informe usuário e senha.')
+    if (form.riotId.trim() && !/.+#.+/.test(form.riotId)) return setError('Use o Riot ID no formato Nome#TAG.')
     onSaved(await window.api.save(form))
   }
 
@@ -154,13 +155,11 @@ function AccountForm({ initial, onClose, onSaved }: {
         <h2>{editing ? 'EDITAR CONTA' : 'ADICIONAR CONTA'}</h2>
         <label>Usuário da Riot<input autoFocus value={form.username} onChange={e => set('username', e.target.value)} /></label>
         <label>Senha<PasswordInput placeholder={editing ? 'Deixe vazio para manter a atual' : ''} value={form.password} onChange={value => set('password', value)} /></label>
-        <label>Riot ID<input placeholder="Nome#TAG" value={form.riotId} onChange={e => set('riotId', e.target.value)} /></label>
         <div className="row">
+          <label>Riot ID<input placeholder="Nome#TAG" value={form.riotId} onChange={e => set('riotId', e.target.value)} /></label>
           <label>Região<select value={form.region} onChange={e => set('region', e.target.value)}>{REGIONS.map(r => <option key={r}>{r}</option>)}</select></label>
-          <label>Elo<select value={form.tier} onChange={e => set('tier', e.target.value as Tier)}>{TIERS.map(t => <option key={t}>{t}</option>)}</select></label>
-          <label>Divisão<select value={form.division} onChange={e => set('division', e.target.value)}>{['', 'I', 'II', 'III', 'IV'].map(d => <option key={d}>{d}</option>)}</select></label>
-          <label>PDL<input type="number" min={0} value={form.lp} onChange={e => set('lp', Number(e.target.value))} /></label>
         </div>
+        <p className="hint">O elo, a divisão e os PDL vêm do Riot ID e da região, automaticamente.</p>
         <label>Anotação<input placeholder="ex.: duo com Leo" value={form.note} onChange={e => set('note', e.target.value)} /></label>
         {error && <div className="error">{error}</div>}
         <div className="modal-actions">
@@ -235,10 +234,46 @@ function AccountCard({ account, disabled, onLogin, onEdit, onDelete }: {
           {ranked && <div className="bar"><i style={{ width: `${Math.min(account.lp, 100)}%`, background: TIER_COLOR[account.tier] }} /></div>}
         </div>
       </div>
+      {account.rankMissing && <div className="rank-missing">Riot ID não encontrado no OP.GG. Confira o nome e a região.</div>}
+      {!account.riotId.trim() && <div className="rank-missing">Adicione o Riot ID para ver o elo.</div>}
       <Penalties status={account.status} />
       <p className="note">{account.note || ' '}</p>
       <button className="login" disabled={disabled} onClick={onLogin}>› ENTRAR</button>
     </article>
+  )
+}
+
+function LoginProgress({ account, step, launchGame, closedLeague }: {
+  account: PublicAccount
+  step: LoginStep
+  launchGame: boolean
+  closedLeague: boolean
+}) {
+  const steps = LOGIN_STEPS.filter(([id]) =>
+    (id !== 'closing-league' || closedLeague) && (id !== 'launching-game' || launchGame))
+  const verification = step === 'verification'
+  const shown: LoginStep = verification ? 'confirming' : step
+  const current = step === 'done' ? steps.length : steps.findIndex(([id]) => id === shown)
+  return (
+    <div className="login-screen" role="status">
+      <div className="login-side">
+        <div className="login-mark" aria-hidden="true"><i /><i /><i /></div>
+        <h2>ENTRANDO</h2>
+        <span>{account.riotId || account.username}</span>
+      </div>
+      <div className="login-steps">
+        <div className="login-bar"><i style={{ width: `${(Math.max(current, 0) / steps.length) * 100}%` }} /></div>
+        <ol>
+          {steps.map(([id, label], index) => (
+            <li key={id} className={index < current ? 'done' : index === current ? 'active' : ''}>
+              <span className="dot">{index < current ? '✓' : ''}</span>{label}
+            </li>
+          ))}
+        </ol>
+        {verification && <p className="verify">A Riot pediu uma verificação. Resolva o captcha ou o 2FA na janela dela.</p>}
+        <button className="ghost" onClick={() => void window.api.cancelLogin()}>CANCELAR</button>
+      </div>
+    </div>
   )
 }
 
@@ -250,12 +285,16 @@ function Vault({ onLock }: { onLock: () => void }) {
   const [launchGame, setLaunchGame] = useState(true)
   const [editing, setEditing] = useState<AccountInput | null>(null)
   const [step, setStep] = useState<LoginStep | null>(null)
+  const [closedLeague, setClosedLeague] = useState(false)
+  const [loggingIn, setLoggingIn] = useState<PublicAccount | null>(null)
+  const [refreshing, setRefreshing] = useState(false)
   const [message, setMessage] = useState('')
   const [askClose, setAskClose] = useState<PublicAccount | null>(null)
 
   useEffect(() => { void window.api.list().then(setAccounts) }, [])
   useEffect(() => window.api.onLoginStep(setStep), [])
   useEffect(() => window.api.onAccountsChanged(setAccounts), [])
+  useEffect(() => window.api.onRanksRefreshing(setRefreshing), [])
 
   const visible = useMemo(() => {
     const query = search.toLowerCase()
@@ -270,9 +309,12 @@ function Vault({ onLock }: { onLock: () => void }) {
   async function doLogin(account: PublicAccount, closeLeague = false): Promise<void> {
     setMessage('')
     setAskClose(null)
+    setClosedLeague(closeLeague)
+    setLoggingIn(account)
     setStep('opening-client')
     const result = await window.api.login(account.id, launchGame, closeLeague)
     setStep(null)
+    setLoggingIn(null)
     if (result.ok) setMessage(`Entrou em ${account.riotId || account.username}.`)
     else if (result.code === 'league-running') setAskClose(account)
     else setMessage(ERROR_TEXT[result.code])
@@ -297,6 +339,7 @@ function Vault({ onLock }: { onLock: () => void }) {
           ))}
         </ul>
         <div className="side-actions">
+          <button disabled={refreshing} onClick={() => void window.api.refreshRanks()}>{refreshing ? '↻ Atualizando elos...' : '↻ Atualizar elos'}</button>
           <button onClick={() => void window.api.importBackup().then(done => done && onLock())}>⇩ Importar backup</button>
           <button onClick={() => void window.api.exportBackup()}>⇧ Exportar backup</button>
           <button onClick={() => void window.api.lock().then(onLock)}>🔒 Travar cofre</button>
@@ -333,14 +376,8 @@ function Vault({ onLock }: { onLock: () => void }) {
 
       {editing && <AccountForm initial={editing} onClose={() => setEditing(null)} onSaved={list => { setAccounts(list); setEditing(null) }} />}
 
-      {step && (
-        <div className="modal-backdrop">
-          <div className="modal progress">
-            <div className="spinner" />
-            <p>{STEP_TEXT[step]}</p>
-            <button className="ghost" onClick={() => void window.api.cancelLogin()}>CANCELAR</button>
-          </div>
-        </div>
+      {step && loggingIn && (
+        <LoginProgress account={loggingIn} step={step} launchGame={launchGame} closedLeague={closedLeague} />
       )}
 
       {askClose && (

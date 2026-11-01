@@ -18,6 +18,12 @@ export interface GameRestriction {
   until: number | null
 }
 
+export interface RankReading {
+  tier: Tier
+  division: string
+  lp: number
+}
+
 /** Last reading from Riot. It can only be read while the account is signed in. */
 export interface AccountStatus {
   checkedAt: number
@@ -39,6 +45,9 @@ export interface Account {
   lp: number
   note: string
   status?: AccountStatus
+  rankCheckedAt?: number
+  /** OP.GG does not know this Riot ID. */
+  rankMissing?: boolean
 }
 
 /** What the interface is allowed to see: everything except the password. */
@@ -56,7 +65,9 @@ export type LoginStep =
   | 'closing-league'
   | 'opening-client'
   | 'signing-out'
-  | 'signing-in'
+  | 'connecting'
+  | 'typing'
+  | 'confirming'
   | 'verification'
   | 'launching-game'
   | 'done'
@@ -87,6 +98,8 @@ export interface Api {
   remove(id: string): Promise<PublicAccount[]>
   login(id: string, launchGame: boolean, closeLeague: boolean): Promise<LoginResult>
   cancelLogin(): Promise<void>
+  refreshRanks(): Promise<void>
+  onRanksRefreshing(listener: (refreshing: boolean) => void): () => void
   exportBackup(): Promise<boolean>
   importBackup(): Promise<boolean>
   onLoginStep(listener: (step: LoginStep) => void): () => void

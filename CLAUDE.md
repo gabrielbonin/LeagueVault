@@ -12,5 +12,8 @@ Cofre local de contas do LoL (Electron + React + TypeScript). Responda em **port
 ## Quando o login quebrar após um update do Riot Client
 Olhe primeiro `src/main/riot.ts`: seletores do formulário em `RENDERER_SCRIPT` (`input[name=username]`, `data-testid="login-form"`), título do alvo CDP (`Riot Client`), estados de `/player-session-lifecycle/v1/session` (`PendingLoginStrategy`, `PendingProductContext`) e argumentos do `Riot Client.exe`. Compare com o projeto de referência, Tariolle/LeagueAccounts (`src/riot_renderer.rs`, `src/riot_client.rs`).
 
+## Quando o elo parar de atualizar
+`src/main/ranks.ts` lê a meta description do OP.GG (`Nome#TAG / Gold 2 48 LP / ...`). Se o OP.GG mudar a página, ajuste `parseOpgg` e os testes em `tests/ranks.test.ts`. Mantenha o intervalo entre requisições.
+
 ## Verificação
 `npm test`, `npm run typecheck`, `npm run build`. Se `node_modules/electron/dist` não existir: `node node_modules/electron/install.js`.
